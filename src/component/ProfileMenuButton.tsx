@@ -13,7 +13,7 @@ import { NDKUserProfile } from "@nostr-dev-kit/ndk";
 
 export default function ProfileMenuButton(props: { profile: NDKUserProfile }) {
 	const { logout } = useLogin();
-	const [anchorEl, setAnchorEl] = useState(null); // State to control the menu's anchor element
+	const [anchorEl, setAnchorEl] = useState<HTMLElement>(null); // State to control the menu's anchor element
 	const open = Boolean(anchorEl); // Boolean to check if the menu is open
 
 	// Function to handle opening the menu
