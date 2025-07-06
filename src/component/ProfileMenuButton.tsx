@@ -17,7 +17,7 @@ export default function ProfileMenuButton(props: { profile: NDKUserProfile }) {
 	const open = Boolean(anchorEl); // Boolean to check if the menu is open
 
 	// Function to handle opening the menu
-	const handleMenuOpen = (event: React.MouseEvent<HTMLDivElement>) => {
+	const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
 		setAnchorEl(event.currentTarget); // Set the current button as the anchor for the menu
 	};
 
