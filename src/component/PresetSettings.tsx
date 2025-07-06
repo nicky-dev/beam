@@ -24,7 +24,7 @@ export default function PresetSettings() {
 	const { ndk } = useNdk();
 	const { activeUser } = useActiveUser();
 
-	const info = useQuery<any, any, QueryResult, QueryKey>({
+	const info = useQuery<unknown, unknown, QueryResult, QueryKey>({
 		queryKey: ["edit-live-presets", { ndk, activeUser }],
 		enabled: open && !!ndk && !!activeUser,
 		queryFn: async ({ queryKey }) => {

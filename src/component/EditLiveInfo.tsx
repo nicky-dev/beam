@@ -1,16 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React from "react";
 import {
 	Box,
 	Button,
-	Chip,
 	CircularProgress,
 	Dialog,
 	DialogActions,
 	DialogContent,
 	DialogTitle,
-	Stack,
 	TextField,
-	Typography,
 } from "@mui/material";
 import { useActiveUser, useNdk } from "nostr-hooks";
 import { useQuery } from "@tanstack/react-query";
@@ -27,7 +24,7 @@ export default function EditLiveInfo() {
 	const { ndk } = useNdk();
 	const { activeUser } = useActiveUser();
 
-	const info = useQuery<any, any, QueryResult, QueryKey>({
+	const info = useQuery<unknown, unknown, QueryResult, QueryKey>({
 		queryKey: ["edit-live-info", { ndk, activeUser }],
 		enabled: open && !!ndk && !!activeUser,
 		queryFn: async ({ queryKey }) => {

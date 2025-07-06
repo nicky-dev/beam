@@ -81,7 +81,7 @@ export default function TagsBox(props: {
 											<Chip
 												key={d}
 												label={d}
-												onDelete={(e) => {
+												onDelete={() => {
 													setTagsText(
 														tags.filter((_d: string) => _d !== d).join(",")
 													);

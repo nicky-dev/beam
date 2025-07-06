@@ -3,7 +3,6 @@ import {
 	Button,
 	Menu,
 	MenuItem,
-	Box,
 	Typography,
 	Container,
 	Avatar,
@@ -18,24 +17,13 @@ export default function ProfileMenuButton(props: { profile: NDKUserProfile }) {
 	const open = Boolean(anchorEl); // Boolean to check if the menu is open
 
 	// Function to handle opening the menu
-	const handleMenuOpen = (event: any) => {
+	const handleMenuOpen = (event) => {
 		setAnchorEl(event.currentTarget); // Set the current button as the anchor for the menu
 	};
 
 	// Function to handle closing the menu
 	const handleMenuClose = () => {
 		setAnchorEl(null); // Clear the anchor to close the menu
-	};
-
-	// Example functions for menu item actions
-	const handleProfileClick = () => {
-		console.log("Profile clicked!");
-		handleMenuClose();
-	};
-
-	const handleSettingsClick = () => {
-		console.log("Settings clicked!");
-		handleMenuClose();
 	};
 
 	const handleLogoutClick = () => {

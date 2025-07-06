@@ -4,7 +4,7 @@ namespace globalThis {
 			isEnabled(): Promise<boolean>;
 			enable(): Promise<void>;
 			getPublicKey(): Promise<string>;
-			signEvent(event: any): Promise<any>;
+			signEvent(event: unknown): Promise<unknown>;
 		};
 	}
 }

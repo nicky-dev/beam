@@ -9,7 +9,7 @@ import { useState } from "react";
 
 const streamUrl = "rtmp://192.168.2.1/live";
 export default function StreamUrlBox(props: TextFieldProps) {
-	const [value, setValue] = useState(streamUrl);
+	const [value] = useState(streamUrl);
 	return (
 		<TextField
 			{...props}
