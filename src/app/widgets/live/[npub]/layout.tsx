@@ -55,11 +55,18 @@ export default function WidgetLayout({
 				ndk: NDK;
 				pubkey: string;
 			};
-			return ndk.fetchEvent({
-				limit: 1,
-				kinds: [30311 as NDKKind],
-				"#p": [pubkey],
-			});
+			return ndk.fetchEvent([
+				{
+					limit: 1,
+					kinds: [30311 as NDKKind],
+					"#p": [pubkey],
+				},
+				{
+					limit: 1,
+					kinds: [30311 as NDKKind],
+					authors: [pubkey],
+				},
+			]);
 		},
 	});
 

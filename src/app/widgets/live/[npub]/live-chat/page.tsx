@@ -19,8 +19,8 @@ export default function LiveChat() {
 		if (!liveId) return;
 		// เพิ่ม NDKKind.Zap (9735) เข้าไปใน filters เพื่อ query zap events ด้วย
 		const filters = [
-			{ kinds: [1311 as NDKKind], "#a": [liveId], limit: 20 }, // Live Chat Messages
-			{ kinds: [NDKKind.Zap], "#a": [liveId], limit: 20 }, // Zap Events targeting this live activity
+			{ kinds: [1311 as NDKKind], "#a": [liveId], limit: 50 }, // Live Chat Messages
+			{ kinds: [NDKKind.Zap], "#a": [liveId], limit: 50 }, // Zap Events targeting this live activity
 		];
 		createSubscription({ filters });
 		return () => {

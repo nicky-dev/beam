@@ -37,6 +37,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 		[message.created_at]
 	);
 
+	const invoice = useMemo(
+		() =>
+			message.kind === NDKKind.Zap ? zapInvoiceFromEvent(message) : undefined,
+		[message]
+	);
+
 	return (
 		<Paper
 			elevation={0}
@@ -128,21 +134,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 							let displayNote = message.content || ""; // ข้อความ Zap จาก content ของ 9735 event
 
 							try {
-								const descriptionTagValue = message.tagValue("description");
-								if (descriptionTagValue) {
-									const zapRequest = JSON.parse(descriptionTagValue);
+								if (invoice) {
+									const { amount, comment } = invoice;
 									// ค้นหา amount จาก tags ของ zapRequest (kind 9734 event)
-									const amountTag = zapRequest.tags?.find(
-										(tag: string[]) => tag[0] === "amount"
-									);
-									if (amountTag && amountTag[1]) {
+									if (amount) {
 										displayAmount = `${(
-											Number(amountTag[1]) / 1000
+											Number(amount) / 1000
 										).toLocaleString()} sats`;
 									}
 									// หาก content ของ 9735 event ไม่มีข้อความ ให้ใช้ข้อความจาก content ของ zapRequest (kind 9734)
-									if (!displayNote && zapRequest.content) {
-										displayNote = zapRequest.content;
+									if (!displayNote && comment) {
+										displayNote = comment;
 									}
 								}
 							} catch (e) {
