@@ -41,9 +41,9 @@ const ReplyMessage: React.FC<ReplyMessageProps> = ({ message }) => {
 		<Paper
 			elevation={0}
 			sx={{
-				padding: "8px 16px",
+				padding: 1,
 				borderRadius: "12px",
-				backgroundColor: "rgba(30, 30, 30, 0.7)",
+				backgroundColor: "rgba(30, 30, 30)",
 				backdropFilter: "blur(3px)",
 				WebkitBackdropFilter: "blur(3px)",
 				display: "flex",

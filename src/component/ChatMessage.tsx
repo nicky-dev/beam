@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import { Box, Typography, Paper, Avatar } from "@mui/material";
 import { NDKEvent, NDKKind, zapInvoiceFromEvent } from "@nostr-dev-kit/ndk"; // <--- เพิ่ม NDKKind
-import { useRealtimeProfile, useSubscription } from "nostr-hooks";
+import { useRealtimeProfile } from "nostr-hooks";
 import { nip19 } from "nostr-tools";
 import { useEventId } from "@/hook/nostr-event";
 import TextNote from "./TextNote";
@@ -53,29 +53,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 			)?.[1],
 		[message.tags]
 	);
-	const repliedToPubkey = useMemo(
-		() =>
-			repliedToEventId
-				? message.tags.find((tag) => tag[0] === "p")?.[1]
-				: undefined,
-		[repliedToEventId, message.tags]
-	);
 
 	const repliedEvent = useEventId(repliedToEventId || "");
-
-	// ดึงข้อมูลโปรไฟล์ของผู้ที่ถูก Reply ถึง
-	const { profile: repliedToProfile } = useRealtimeProfile(
-		repliedToPubkey || ""
-	);
-	const repliedToDisplayName = useMemo(
-		() =>
-			repliedToProfile?.displayName ||
-			repliedToProfile?.name ||
-			(repliedToPubkey
-				? nip19.npubEncode(repliedToPubkey).substring(0, 8)
-				: ""),
-		[repliedToProfile, repliedToPubkey]
-	);
 
 	return (
 		<>

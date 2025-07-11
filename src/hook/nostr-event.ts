@@ -14,7 +14,7 @@ export const useEventId = (eventId: string) => {
 		return () => {
 			removeSubscription();
 		};
-	}, [eventId, createSubscription]);
+	}, [eventId, createSubscription, removeSubscription]);
 	return events?.[0];
 };
 
@@ -26,6 +26,6 @@ export const useEvents = (filters: NDKFilter[]) => {
 		return () => {
 			removeSubscription();
 		};
-	}, [filters, createSubscription]);
+	}, [filters, createSubscription, removeSubscription]);
 	return events?.[0];
 };

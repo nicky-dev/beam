@@ -37,25 +37,17 @@ const MentionText: React.FC<MentionTextProps> = ({ pubkey }) => {
 };
 
 const NostrEntityText: React.FC<NostrEntityTextProps> = ({ uri }) => {
-	let decoded;
-	try {
-		// ถอดรหัส URI โดยตัด 'nostr:' ออกก่อน ถ้ามี
-		decoded = nip19.decode(uri.replace(/^nostr:/, ""));
-	} catch (e) {
-		console.error("🚫 เกิดข้อผิดพลาดในการถอดรหัส NIP-21 URI:", uri, e);
-		return (
-			<Typography
-				component="span"
-				sx={{ color: "#ff8888", fontWeight: "bold" }}
-			>
-				{uri}
-			</Typography>
-		); // แสดง URI ดิบถ้าถอดรหัสไม่ได้
-	}
+	const decoded = useMemo(() => {
+		try {
+			return nip19.decode(uri.replace(/^nostr:/, ""));
+		} catch (e) {
+			console.error("🚫 เกิดข้อผิดพลาดในการถอดรหัส NIP-21 URI:", uri, e);
+			return null; // ถอดรหัสล้มเหลว
+		}
+	}, [uri]);
 
 	let displayContent: React.ReactNode = uri; // ค่าเริ่มต้นเป็น URI ดิบ
-
-	switch (decoded.type) {
+	switch (decoded?.type) {
 		case "npub":
 		case "nprofile":
 			const pubkey =
@@ -70,10 +62,7 @@ const NostrEntityText: React.FC<NostrEntityTextProps> = ({ uri }) => {
 				decoded.type === "note"
 					? decoded.data.toString()
 					: (decoded.data as { id: string }).id;
-			displayContent = useMemo(
-				() => `${decoded.type}1${id.substring(0, 4)}`, // แสดงรูปแบบ เช่น note1abcd...
-				[id, decoded.type]
-			);
+			displayContent = `${decoded.type}1${id.substring(0, 4)}`;
 			break;
 		// สามารถเพิ่ม case สำหรับ 'naddr', 'nrelay' ได้ถ้าต้องการ
 		default:

@@ -11,6 +11,7 @@ const relays = [
 	"wss://relay.damus.io",
 	"wss://relay.nostr.band",
 	"wss://nos.lol",
+	"wss://nostr.land",
 ];
 
 export default function WidgetLayout({
