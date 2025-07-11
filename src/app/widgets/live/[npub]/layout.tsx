@@ -12,6 +12,7 @@ const relays = [
 	"wss://relay.nostr.band",
 	"wss://nos.lol",
 	"wss://nostr.land",
+	"wss://purplerelay.com",
 ];
 
 export default function WidgetLayout({
