@@ -1,4 +1,4 @@
-import React, { FormEvent, useMemo } from "react";
+import React, { FormEvent } from "react";
 import {
 	Box,
 	Button,
@@ -41,23 +41,23 @@ export default function EditStreamingInfo() {
 
 	const handleSubmit = async (evt: FormEvent<HTMLDivElement>) => {
 		evt.preventDefault();
-		const target = evt.nativeEvent.target as HTMLFormElement;
-		const form = new FormData(target);
+		// const target = evt.nativeEvent.target as HTMLFormElement;
+		// const form = new FormData(target);
 
-		const values = {
-			title: form.get("title"),
-			summary: form.get("summary"),
-			image: form.get("image"),
-			tags: form.get("tags")?.toString().split(","),
-		};
-		const event = new NDKEvent(ndk, {
-			kind: 30311 as NDKKind,
-			content: "",
-			pubkey: activeUser?.pubkey,
-			tags: [["d", "beamlivestudio-config"]],
-		});
+		// const values = {
+		// 	title: form.get("title"),
+		// 	summary: form.get("summary"),
+		// 	image: form.get("image"),
+		// 	tags: form.get("tags")?.toString().split(","),
+		// };
+		// const event = new NDKEvent(ndk, {
+		// 	kind: 30311 as NDKKind,
+		// 	content: "",
+		// 	pubkey: activeUser?.pubkey,
+		// 	tags: [["d", "beamlivestudio-config"]],
+		// });
 		setBusy(true);
-		await event.publish();
+		// await event.publish();
 		setBusy(false);
 		handleClose();
 	};
