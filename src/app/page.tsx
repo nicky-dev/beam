@@ -20,7 +20,7 @@ import ProfileMenuButton from "@/component/ProfileMenuButton";
 import StreamKeyBox from "@/component/StreamKeyBox";
 import StreamUrlBox from "@/component/StreamUrlBox";
 import PresetSettings from "@/component/PresetSettings";
-import EditLiveInfo from "@/component/EditLiveInfo";
+import EditStreamingInfo from "@/component/EditStreamingInfo";
 import NDKCacheAdapterDexie from "@nostr-dev-kit/ndk-cache-dexie";
 
 const relays = [
@@ -120,7 +120,7 @@ export default function Home() {
 						<Box display="flex">
 							<PresetSettings />
 							<Box mx={1} />
-							<EditLiveInfo />
+							<EditStreamingInfo />
 						</Box>
 					</Box>
 				</>

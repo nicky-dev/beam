@@ -1,4 +1,4 @@
-import React from "react";
+import React, { FormEvent, useMemo } from "react";
 import {
 	Box,
 	Button,
@@ -8,6 +8,7 @@ import {
 	DialogContent,
 	DialogTitle,
 	TextField,
+	Typography,
 } from "@mui/material";
 import { useActiveUser, useNdk } from "nostr-hooks";
 import { useQuery } from "@tanstack/react-query";
@@ -17,8 +18,9 @@ import TagsBox from "./TagsBox";
 type QueryKey = [string, { ndk?: NDK; activeUser?: NDKUser | null }];
 type QueryResult = NDKEvent | null;
 
-export default function EditLiveInfo() {
+export default function EditStreamingInfo() {
 	const [open, setOpen] = React.useState(false);
+	const [busy, setBusy] = React.useState(false);
 	const handleOpen = () => setOpen(true);
 	const handleClose = () => setOpen(false);
 	const { ndk } = useNdk();
@@ -37,6 +39,29 @@ export default function EditLiveInfo() {
 		},
 	});
 
+	const handleSubmit = async (evt: FormEvent<HTMLDivElement>) => {
+		evt.preventDefault();
+		const target = evt.nativeEvent.target as HTMLFormElement;
+		const form = new FormData(target);
+
+		const values = {
+			title: form.get("title"),
+			summary: form.get("summary"),
+			image: form.get("image"),
+			tags: form.get("tags")?.toString().split(","),
+		};
+		const event = new NDKEvent(ndk, {
+			kind: 30311 as NDKKind,
+			content: "",
+			pubkey: activeUser?.pubkey,
+			tags: [["d", "beamlivestudio-config"]],
+		});
+		setBusy(true);
+		await event.publish();
+		setBusy(false);
+		handleClose();
+	};
+
 	return (
 		<>
 			<Button
@@ -45,14 +70,21 @@ export default function EditLiveInfo() {
 				variant="contained"
 				sx={{ textTransform: "none" }}
 			>
-				Edit Live Info
+				Edit Streaming Info
 			</Button>
-			<Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-				<DialogTitle>{"Edit Live Info"}</DialogTitle>
+			<Dialog
+				open={open}
+				onClose={handleClose}
+				fullWidth
+				maxWidth="sm"
+				component="form"
+				onSubmit={handleSubmit}
+			>
+				<DialogTitle>{"Edit Streaming Info"}</DialogTitle>
 				<DialogContent>
 					{info.isFetching ? (
 						<CircularProgress />
-					) : (
+					) : info.data ? (
 						<Box display="flex" flexDirection="column">
 							<TextField
 								name="title"
@@ -75,11 +107,17 @@ export default function EditLiveInfo() {
 								initialValues={info.data?.getMatchingTags("t").map((t) => t[1])}
 							/>
 						</Box>
+					) : (
+						<Typography>No streaming.</Typography>
 					)}
 				</DialogContent>
 				<DialogActions>
-					<Button onClick={handleClose}>Cancel</Button>
-					<Button onClick={handleClose}>Save</Button>
+					<Button onClick={handleClose} disabled={busy}>
+						Cancel
+					</Button>
+					<Button type="submit" disabled={true} loading={busy}>
+						Save
+					</Button>
 				</DialogActions>
 			</Dialog>
 		</>

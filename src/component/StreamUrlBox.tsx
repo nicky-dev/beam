@@ -7,7 +7,7 @@ import {
 } from "@mui/material";
 import { useState } from "react";
 
-const streamUrl = "rtmp://192.168.2.1/live";
+const streamUrl = "rtmp://beam.mapboss.co.th/live";
 export default function StreamUrlBox(props: TextFieldProps) {
 	const [value] = useState(streamUrl);
 	return (

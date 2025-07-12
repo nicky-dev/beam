@@ -4,6 +4,7 @@ import { Chip, InputAdornment, Stack, TextField } from "@mui/material";
 export default function TagsBox(props: {
 	name?: string;
 	initialValues?: string[];
+	disabled?: boolean;
 }) {
 	const [tagText, setTagText] = useState("");
 	const [tagsText, setTagsText] = useState("");
@@ -22,6 +23,7 @@ export default function TagsBox(props: {
 		<>
 			<input type="hidden" name={props.name} value={tagsText} />
 			<TextField
+				disabled={props.disabled}
 				value={tagText}
 				onPaste={(evt) => {
 					evt.preventDefault();
@@ -79,6 +81,7 @@ export default function TagsBox(props: {
 									{tags.map((d: string) => {
 										return (
 											<Chip
+												disabled={props.disabled}
 												key={d}
 												label={d}
 												onDelete={() => {

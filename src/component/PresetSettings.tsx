@@ -19,6 +19,7 @@ type QueryResult = NDKEvent | null;
 
 export default function PresetSettings() {
 	const [open, setOpen] = React.useState(false);
+	const [busy, setBusy] = React.useState(false);
 	const handleOpen = () => setOpen(true);
 	const handleClose = () => setOpen(false);
 	const { ndk } = useNdk();
@@ -60,7 +61,10 @@ export default function PresetSettings() {
 			pubkey: activeUser?.pubkey,
 			tags: [["d", "beamlivestudio-config"]],
 		});
+		setBusy(true);
 		await event.publish();
+		setBusy(false);
+		handleClose();
 	};
 
 	return (
@@ -87,26 +91,37 @@ export default function PresetSettings() {
 						<CircularProgress />
 					) : (
 						<Box display="flex" flexDirection="column">
-							<TextField name="title" label="Title" defaultValue={data.title} />
+							<TextField
+								name="title"
+								label="Title"
+								defaultValue={data.title}
+								disabled={busy}
+							/>
 							<TextField
 								name="summary"
 								label="Summary"
 								defaultValue={data.summary}
 								multiline
 								rows={3}
+								disabled={busy}
 							/>
 							<TextField
 								name="image"
 								label="Cover Image"
 								defaultValue={data.image}
+								disabled={busy}
 							/>
-							<TagsBox name="tags" initialValues={data.tags} />
+							<TagsBox name="tags" initialValues={data.tags} disabled={busy} />
 						</Box>
 					)}
 				</DialogContent>
 				<DialogActions>
-					<Button onClick={handleClose}>Cancel</Button>
-					<Button type="submit">Save</Button>
+					<Button onClick={handleClose} disabled={busy}>
+						Cancel
+					</Button>
+					<Button type="submit" loading={busy}>
+						Save
+					</Button>
 				</DialogActions>
 			</Dialog>
 		</>
