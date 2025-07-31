@@ -37,7 +37,7 @@ export default function LiveChat() {
 		return () => {
 			removeSubscription();
 		};
-	}, [liveId, createSubscription, removeSubscription]);
+	}, [now, liveId, createSubscription, removeSubscription]);
 
 	// เพิ่ม useEffect นี้เข้ามา เพื่อเลื่อน scroll ลงล่างสุดเมื่อ events มีการเปลี่ยนแปลง (มีข้อความใหม่เข้ามา)
 	React.useEffect(() => {
