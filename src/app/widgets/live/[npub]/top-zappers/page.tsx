@@ -23,12 +23,11 @@ export default function TopZapperWidget() {
 	useEffect(() => {
 		if (!pubkey) return;
 		const since = new Date();
+		since.setDate(0);
 		since.setDate(1);
-		since.setMonth(since.getMonth() - 1);
 		const filters = [
 			{
 				kinds: [NDKKind.Zap],
-				// "#a": [liveId],
 				"#p": [pubkey],
 				since: since.getTime() / 1000,
 			},
@@ -83,7 +82,7 @@ export default function TopZapperWidget() {
 			}}
 		>
 			<Typography variant="h6" gutterBottom sx={{ color: "white" }}>
-				⭐ Top Supporter Since Last Month ⭐
+				⭐ Top Zapper ⭐
 			</Typography>
 			{topZappers.length === 0 ? (
 				<Typography variant="body2" sx={{ color: "rgba(255, 255, 255, 0.7)" }}>

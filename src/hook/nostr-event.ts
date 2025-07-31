@@ -1,4 +1,4 @@
-import { NDKFilter } from "@nostr-dev-kit/ndk";
+import { NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
 import { useSubscription } from "nostr-hooks";
 import { useEffect } from "react";
 

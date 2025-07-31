@@ -30,20 +30,22 @@ export default function ViewersCounterWidget() {
 	}, [liveInfo, createSubscription, removeSubscription]);
 
 	const uniqueViewersCount = useMemo(() => {
-		if (!events || events.length === 0) {
+		const event = events?.[0];
+		if (!event) {
+			return 0;
+		}
+		if (event.tagValue("status") !== "live") {
 			return 0;
 		}
 		// ดึงค่า 'current_participants' จากเหตุการณ์ล่าสุด
 		// แปลงเป็นตัวเลข หากไม่มีค่า ให้เป็น 0
-		const viewers = parseInt(
-			events[0]?.tagValue("current_participants") || "0",
-			10
-		);
+		const viewers = parseInt(event.tagValue("current_participants") || "0", 10);
 		return isNaN(viewers) ? 0 : viewers.toLocaleString(); // ตรวจสอบอีกครั้งเพื่อความชัวร์
 	}, [events]); // คำนวณใหม่เมื่อ events มีการเปลี่ยนแปลง
 
 	return (
 		<Box
+			className="container"
 			sx={{
 				color: "white",
 				display: "flex",
@@ -54,10 +56,11 @@ export default function ViewersCounterWidget() {
 				textShadow: "2px 2px 4px rgba(0,0,0,0.8), 0px 0px 8px rgba(0,0,0,0.5)", // เงาเข้มขึ้น อ่านง่ายขึ้น
 			}}
 		>
-			<Icon sx={{ fontSize: "100vh" }}>
+			<Icon className="icon" sx={{ fontSize: "100vh" }}>
 				<LogNostr />
 			</Icon>
 			<Typography
+				className="viewer"
 				variant="h6"
 				sx={{
 					color: "white",

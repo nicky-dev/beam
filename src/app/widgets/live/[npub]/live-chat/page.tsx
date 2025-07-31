@@ -5,8 +5,11 @@ import { NDKKind } from "@nostr-dev-kit/ndk";
 import ChatMessageList from "@/component/ChatMessagesList";
 import { Box } from "@mui/material";
 import { useWidgetContext } from "@/hook/widget";
+import { useSearchParams } from "next/navigation";
 
 export default function LiveChat() {
+	const searchParams = useSearchParams();
+	const now = searchParams.get("now");
 	const { liveId } = useWidgetContext();
 	const chatBoxRef = React.useRef<HTMLElement>(null); // สร้าง ref สำหรับอ้างอิง Box element
 	const timeoutRef = React.useRef<NodeJS.Timeout>(null); // สร้าง ref สำหรับอ้างอิง Box element
@@ -19,8 +22,16 @@ export default function LiveChat() {
 		if (!liveId) return;
 		// เพิ่ม NDKKind.Zap (9735) เข้าไปใน filters เพื่อ query zap events ด้วย
 		const filters = [
-			{ kinds: [1311 as NDKKind], "#a": [liveId], limit: 50 }, // Live Chat Messages
-			{ kinds: [NDKKind.Zap], "#a": [liveId], limit: 50 }, // Zap Events targeting this live activity
+			{
+				kinds: [1311 as NDKKind],
+				"#a": [liveId],
+				...(now === "1" ? { since: Date.now() / 1000 } : { limit: 20 }),
+			}, // Live Chat Messages
+			{
+				kinds: [NDKKind.Zap],
+				"#a": [liveId],
+				...(now === "1" ? { since: Date.now() / 1000 } : { limit: 20 }),
+			}, // Zap Events targeting this live activity
 		];
 		createSubscription({ filters });
 		return () => {
@@ -47,6 +58,7 @@ export default function LiveChat() {
 
 	return (
 		<Box
+			className="chat"
 			ref={chatBoxRef}
 			sx={{
 				overflowY: "auto",
