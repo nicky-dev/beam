@@ -58,7 +58,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 
 	return (
 		<Paper
-			className="message"
+			className={
+				message.kind === NDKKind.Zap
+					? "chat-message zap"
+					: "chat-message message"
+			}
 			elevation={0}
 			sx={{
 				marginBottom: "8px",

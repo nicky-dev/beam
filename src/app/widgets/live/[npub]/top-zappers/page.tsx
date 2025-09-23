@@ -13,7 +13,7 @@ interface ZapperStats {
 }
 
 export default function TopZapperWidget() {
-	const { liveId, pubkey } = useWidgetContext();
+	const { liveId } = useWidgetContext();
 
 	const subId = useMemo(() => "top-zappers-widget-" + liveId, [liveId]);
 	const { createSubscription, removeSubscription, events } =
@@ -21,22 +21,21 @@ export default function TopZapperWidget() {
 
 	// Effect to initialize the subscription
 	useEffect(() => {
-		if (!pubkey) return;
+		if (!liveId) return;
 		const since = new Date();
 		since.setDate(0);
 		since.setDate(1);
 		const filters = [
 			{
 				kinds: [NDKKind.Zap],
-				"#p": [pubkey],
-				since: since.getTime() / 1000,
+				"#a": [liveId],
 			},
 		];
 		createSubscription({ filters });
 		return () => {
 			removeSubscription();
 		};
-	}, [pubkey, createSubscription, removeSubscription]);
+	}, [liveId, createSubscription, removeSubscription]);
 
 	const zappers = useMemo(() => {
 		return events?.reduce((a, b) => {
@@ -82,7 +81,7 @@ export default function TopZapperWidget() {
 			}}
 		>
 			<Typography variant="h6" gutterBottom sx={{ color: "white" }}>
-				⭐ Top Zapper ⭐
+				Top Zappers
 			</Typography>
 			{topZappers.length === 0 ? (
 				<Typography variant="body2" sx={{ color: "rgba(255, 255, 255, 0.7)" }}>
