@@ -18,7 +18,7 @@
     "@nostr-dev-kit/ndk": "^2.14.32",
     "@nostr-dev-kit/ndk-cache-dexie": "^2.6.33",
     "@tanstack/react-query": "^5.81.5",
-    "next": "15.3.4",
+    "next": "15.3.8",
     "nostr-hooks": "^4.3.3",
     "nostr-tools": "^2.15.0",
     "react": "^19.0.0",
