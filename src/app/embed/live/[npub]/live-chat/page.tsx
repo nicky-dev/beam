@@ -41,6 +41,7 @@ export default function LiveChat() {
 
 	// เพิ่ม useEffect นี้เข้ามา เพื่อเลื่อน scroll ลงล่างสุดเมื่อ events มีการเปลี่ยนแปลง (มีข้อความใหม่เข้ามา)
 	React.useEffect(() => {
+		if (!events || events.length <= 0) return;
 		if (timeoutRef.current) {
 			clearTimeout(timeoutRef.current);
 			timeoutRef.current = null;
