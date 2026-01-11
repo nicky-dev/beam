@@ -56,6 +56,26 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 
 	const repliedEvent = useEventId(repliedToEventId || "");
 
+	// สร้าง donation string สำหรับ Social Stream Ninja
+	const donationAmount = useMemo(() => {
+		if (message.kind !== NDKKind.Zap || !invoice?.amount) return undefined;
+		return `${(Number(invoice.amount) / 1000).toLocaleString()} sats`;
+	}, [message.kind, invoice?.amount]);
+
+	// สร้าง zap display text
+	const zapDisplayText = useMemo(() => {
+		if (message.kind !== NDKKind.Zap) return "";
+
+		const amount = invoice?.amount;
+		const comment = invoice?.comment;
+		const displayAmount = amount
+			? `${(Number(amount) / 1000).toLocaleString()} sats`
+			: "Zap";
+		const displayNote = message.content || comment || "";
+
+		return displayNote ? `${displayAmount}: ${displayNote}` : displayAmount;
+	}, [message.kind, message.content, invoice]);
+
 	return (
 		<Paper
 			className={
@@ -63,6 +83,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 					? "chat-message zap"
 					: "chat-message message"
 			}
+			// Social Stream Ninja data attributes
+			data-chatname={senderDisplayName}
+			data-chatmessage={message.content}
+			data-chatimg={profile?.picture || ""}
+			data-type="nostr"
+			data-has-donation={donationAmount}
+			data-userid={pubkey}
+			data-timestamp={message.created_at}
 			elevation={0}
 			sx={{
 				marginBottom: "8px",
@@ -81,13 +109,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 		>
 			{profile?.picture ? (
 				<Avatar
-					className="avatar"
+					className="avatar chatimg"
 					src={profile?.picture}
 					alt={senderDisplayName}
 					sx={{ width: 24, height: 24, bgcolor: pubkeyColor, flexShrink: 0 }}
 				/>
 			) : (
 				<Avatar
+					className="avatar chatimg"
 					sx={{ width: 24, height: 24, bgcolor: pubkeyColor, flexShrink: 0 }}
 				>
 					{senderDisplayName[0]?.toLocaleUpperCase() || "?"}
@@ -105,7 +134,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 					}}
 				>
 					<Typography
-						className="username"
+						className="username chat-username author"
+						data-username={senderDisplayName}
 						variant="subtitle1"
 						sx={{
 							fontWeight: "bold",
@@ -137,6 +167,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 				{message.kind === NDKKind.Zap ? (
 					<Typography
 						variant="body1"
+						className="message-text chat-text content donation"
 						sx={{
 							margin: 0,
 							color: "#aaffaa", // สีเขียวอ่อนสำหรับ Zap เพื่อให้โดดเด่น
@@ -148,36 +179,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 						<span role="img" aria-label="zap">
 							⚡️
 						</span>{" "}
-						{(() => {
-							let displayAmount = "Zap";
-							let displayNote = message.content || ""; // ข้อความ Zap จาก content ของ 9735 event
-
-							try {
-								if (invoice) {
-									const { amount, comment } = invoice;
-									// ค้นหา amount จาก tags ของ zapRequest (kind 9734 event)
-									if (amount) {
-										displayAmount = `${(
-											Number(amount) / 1000
-										).toLocaleString()} sats`;
-									}
-									// หาก content ของ 9735 event ไม่มีข้อความ ให้ใช้ข้อความจาก content ของ zapRequest (kind 9734)
-									if (!displayNote && comment) {
-										displayNote = comment;
-									}
-								}
-							} catch (e) {
-								console.error("Failed to parse zap description or amount:", e);
-								// หากเกิดข้อผิดพลาด ให้ใช้ค่าเริ่มต้น
-							}
-
-							return `${displayAmount}${displayNote ? `: ${displayNote}` : ""}`;
-						})()}
+						{zapDisplayText}
 					</Typography>
 				) : (
 					<Typography
 						variant="body1"
-						className="message-text"
+						className="message-text chat-text content message-content"
 						sx={{
 							margin: 0,
 							color: "#ffffff",

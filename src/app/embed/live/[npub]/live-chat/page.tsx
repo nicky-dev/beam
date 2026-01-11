@@ -25,12 +25,16 @@ export default function LiveChat() {
 			{
 				kinds: [1311 as NDKKind],
 				"#a": [liveId],
-				...(now === "1" ? { since: Date.now() / 1000 } : { limit: 20 }),
+				...(now === "1"
+					? { since: Math.floor(Date.now() / 1000) }
+					: { limit: 20 }),
 			}, // Live Chat Messages
 			{
 				kinds: [NDKKind.Zap],
 				"#a": [liveId],
-				...(now === "1" ? { since: Date.now() / 1000 } : { limit: 20 }),
+				...(now === "1"
+					? { since: Math.floor(Date.now() / 1000) }
+					: { limit: 20 }),
 			}, // Zap Events targeting this live activity
 		];
 		createSubscription({ filters });

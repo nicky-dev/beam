@@ -124,7 +124,7 @@ export default function WidgetsPage() {
 					<>
 						<WidgetUrlBox
 							label="OBS Browser Source URL"
-							url={`${typeof window !== "undefined" ? window.location.origin : ""}/embed/live/${activeNpub}/live-chat?now=1`}
+							url={`${typeof window !== "undefined" ? window.location.origin : ""}/embed/live/${activeNpub}/live-chat?now=0`}
 						/>
 						<Box
 							sx={{

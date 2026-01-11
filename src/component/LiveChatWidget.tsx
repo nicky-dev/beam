@@ -10,7 +10,10 @@ interface LiveChatWidgetProps {
 	now?: boolean;
 }
 
-export default function LiveChatWidget({ liveId, now = true }: LiveChatWidgetProps) {
+export default function LiveChatWidget({
+	liveId,
+	now = true,
+}: LiveChatWidgetProps) {
 	const chatBoxRef = React.useRef<HTMLElement>(null);
 	const timeoutRef = React.useRef<NodeJS.Timeout>(null);
 
@@ -24,12 +27,12 @@ export default function LiveChatWidget({ liveId, now = true }: LiveChatWidgetPro
 			{
 				kinds: [1311 as NDKKind],
 				"#a": [liveId],
-				...(now ? { since: Date.now() / 1000 } : { limit: 20 }),
+				...(now ? { since: Math.floor(Date.now() / 1000) } : { limit: 20 }),
 			},
 			{
 				kinds: [NDKKind.Zap],
 				"#a": [liveId],
-				...(now ? { since: Date.now() / 1000 } : { limit: 20 }),
+				...(now ? { since: Math.floor(Date.now() / 1000) } : { limit: 20 }),
 			},
 		];
 		createSubscription({ filters });
