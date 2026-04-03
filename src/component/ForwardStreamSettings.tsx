@@ -15,6 +15,7 @@ import {
 	AccordionDetails,
 	Alert,
 	CircularProgress,
+	Tooltip,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import YouTubeIcon from "@mui/icons-material/YouTube";
@@ -23,6 +24,7 @@ import VideogameAssetIcon from "@mui/icons-material/VideogameAsset"; // For Twit
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import SettingsIcon from "@mui/icons-material/Settings";
+import LinkIcon from "@mui/icons-material/Link";
 import { useActiveUser, useNdk } from "nostr-hooks";
 import { useQuery } from "@tanstack/react-query";
 import { default as NDK, NDKEvent, NDKKind, NDKUser } from "@nostr-dev-kit/ndk";
@@ -71,6 +73,21 @@ const defaultConfig: ForwardStreamConfig = {
 		isLive: false,
 	},
 };
+
+function getPlatformIcon(platform: keyof ForwardStreamConfig) {
+	switch (platform) {
+		case "youtube":
+			return <YouTubeIcon sx={{ color: "#FF0000" }} />;
+		case "facebook":
+			return <FacebookIcon sx={{ color: "#1877F2" }} />;
+		case "twitch":
+			return <VideogameAssetIcon sx={{ color: "#9146FF" }} />;
+	}
+}
+
+function getPlatformName(platform: keyof ForwardStreamConfig) {
+	return platform.charAt(0).toUpperCase() + platform.slice(1);
+}
 
 type QueryKey = [string, { ndk?: NDK; activeUser?: NDKUser | null }];
 type QueryResult = NDKEvent | null;
@@ -169,20 +186,23 @@ export default function ForwardStreamSettings() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [forwardError, setForwardError] = useState<string | null>(null);
 	const [loadedEventId, setLoadedEventId] = useState<string | null>(null);
+	const [connectingPlatforms, setConnectingPlatforms] = useState<
+		Set<keyof ForwardStreamConfig>
+	>(new Set());
 	const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
 	// Update isLive status based on push list
 	useEffect(() => {
 		if (!pushListQuery.data) return;
-		
+
 		const activePushes = pushListQuery.data;
 		setConfig((prev) => {
 			const updated = { ...prev };
-			
+
 			// Check each platform
 			for (const platform of ["youtube", "facebook", "twitch"] as const) {
-				const push = activePushes.find((p) => 
-					p.rtmpUrl.includes(prev[platform].serverUrl) || 
+				const push = activePushes.find((p) =>
+					p.rtmpUrl.includes(prev[platform].serverUrl) ||
 					p.platform === platform
 				);
 				if (push) {
@@ -199,7 +219,7 @@ export default function ForwardStreamSettings() {
 					};
 				}
 			}
-			
+
 			return updated;
 		});
 	}, [pushListQuery.data]);
@@ -208,13 +228,13 @@ export default function ForwardStreamSettings() {
 	useEffect(() => {
 		const event = configQuery.data;
 		if (!event || !activeUser) return;
-		
+
 		// Skip if we already loaded this event
 		if (loadedEventId === event.id) return;
 
 		const loadConfig = async () => {
 			const content = event.content;
-			
+
 			// First, try to parse as plain JSON
 			try {
 				const loadedConfig = JSON.parse(content);
@@ -332,57 +352,182 @@ export default function ForwardStreamSettings() {
 		saveConfig(newConfig);
 	};
 
-	const handleStartForward = async (platform: keyof ForwardStreamConfig) => {
+	// Open OAuth popup to connect a platform and auto-retrieve its stream key
+	const handleOAuthConnect = useCallback(
+		(platform: keyof ForwardStreamConfig) => {
+			const popup = window.open(
+				`/api/auth/${platform}`,
+				`${platform}-oauth`,
+				"width=600,height=700,scrollbars=yes,resizable=yes",
+			);
+
+			if (!popup) {
+				setForwardError(
+					"Popup was blocked. Please allow popups for this site and try again.",
+				);
+				return;
+			}
+
+			// Some browsers return a non-null window that is immediately closed
+			setTimeout(() => {
+				if (popup.closed) {
+					setForwardError(
+						"Popup was blocked. Please allow popups for this site and try again.",
+					);
+					return;
+				}
+			}, 100);
+
+			setConnectingPlatforms((prev) => new Set([...prev, platform]));
+
+			const handleMessage = (event: MessageEvent) => {
+				if (event.origin !== window.location.origin) return;
+
+				const data = event.data;
+				if (
+					!data ||
+					typeof data !== "object" ||
+					typeof data.type !== "string" ||
+					typeof data.platform !== "string" ||
+					data.platform !== platform
+				)
+					return;
+
+				if (data.type === "oauth-success") {
+					const streamKey =
+						typeof data.streamKey === "string" ? data.streamKey : "";
+					const serverUrl =
+						typeof data.serverUrl === "string" ? data.serverUrl : "";
+					setConfig((prev) => {
+						const newConfig = {
+							...prev,
+							[platform]: {
+								...prev[platform],
+								streamKey: streamKey || prev[platform].streamKey,
+								serverUrl: serverUrl || prev[platform].serverUrl,
+								enabled: true,
+							},
+						};
+						saveConfig(newConfig);
+						return newConfig;
+					});
+				} else if (data.type === "oauth-error") {
+					const errorMsg =
+						typeof data.error === "string" ? data.error : "Unknown error";
+					setForwardError(
+						`Failed to connect ${getPlatformName(platform)}: ${errorMsg}`,
+					);
+				}
+
+				setConnectingPlatforms((prev) => {
+					const next = new Set(prev);
+					next.delete(platform);
+					return next;
+				});
+				window.removeEventListener("message", handleMessage);
+			};
+
+			window.addEventListener("message", handleMessage);
+
+			// Detect popup closed without completing OAuth
+			const pollTimer = setInterval(() => {
+				if (popup.closed) {
+					clearInterval(pollTimer);
+					window.removeEventListener("message", handleMessage);
+					setConnectingPlatforms((prev) => {
+						const next = new Set(prev);
+						next.delete(platform);
+						return next;
+					});
+				}
+			}, 500);
+		},
+		[saveConfig],
+	);
+
+	const handleStartForward = useCallback(
+		async (platform: keyof ForwardStreamConfig) => {
+			if (!isStreaming || !streamId) {
+				setForwardError("Please start your main stream first before forwarding.");
+				return;
+			}
+
+			const platformConfig = config[platform];
+			if (!platformConfig.streamKey || !platformConfig.serverUrl) {
+				setForwardError("Please configure server URL and stream key first.");
+				return;
+			}
+
+			setForwardError(null);
+
+			try {
+				const response = await fetch(`${PUSH_API_URL}/v1/push/start`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						streamId,
+						streamKey: platformConfig.streamKey,
+						rtmpUrl: platformConfig.serverUrl,
+					}),
+				});
+
+				if (!response.ok) {
+					const error = await response.json().catch(() => ({ message: "Failed to start forward" }));
+					throw new Error(error.message || "Failed to start forward");
+				}
+
+				const data = await response.json();
+				const pushId = data.pushId;
+
+				setConfig((prev) => ({
+					...prev,
+					[platform]: {
+						...prev[platform],
+						isLive: true,
+						pushId,
+					},
+				}));
+
+				// Refetch push list
+				pushListQuery.refetch();
+			} catch (error) {
+				console.error(`Failed to start forward to ${platform}:`, error);
+				setForwardError(error instanceof Error ? error.message : "Failed to start forward");
+			}
+		},
+		[isStreaming, streamId, config, pushListQuery],
+	);
+
+	// Start forwarding to all enabled platforms at once
+	const handleStartAllForward = useCallback(async () => {
 		if (!isStreaming || !streamId) {
-			alert("Please start your main stream first before forwarding.");
+			setForwardError(
+				"Please start your main stream first before forwarding.",
+			);
 			return;
 		}
 
-		const platformConfig = config[platform];
-		if (!platformConfig.streamKey || !platformConfig.serverUrl) {
-			alert("Please configure server URL and stream key first.");
+		const enabledPlatforms = (
+			["youtube", "facebook", "twitch"] as const
+		).filter(
+			(p) =>
+				config[p].enabled && !config[p].isLive && config[p].streamKey,
+		);
+
+		if (enabledPlatforms.length === 0) {
+			setForwardError(
+				"No platforms are enabled and ready. Enable at least one platform with a stream key.",
+			);
 			return;
 		}
 
 		setForwardError(null);
-
-		try {
-			const response = await fetch(`${PUSH_API_URL}/v1/push/start`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					streamId,
-					streamKey: platformConfig.streamKey,
-					rtmpUrl: platformConfig.serverUrl,
-				}),
-			});
-
-			if (!response.ok) {
-				const error = await response.json().catch(() => ({ message: "Failed to start forward" }));
-				throw new Error(error.message || "Failed to start forward");
-			}
-
-			const data = await response.json();
-			const pushId = data.pushId;
-
-			setConfig((prev) => ({
-				...prev,
-				[platform]: {
-					...prev[platform],
-					isLive: true,
-					pushId,
-				},
-			}));
-
-			// Refetch push list
-			pushListQuery.refetch();
-		} catch (error) {
-			console.error(`Failed to start forward to ${platform}:`, error);
-			setForwardError(error instanceof Error ? error.message : "Failed to start forward");
-		}
-	};
+		await Promise.allSettled(
+			enabledPlatforms.map((p) => handleStartForward(p)),
+		);
+	}, [isStreaming, streamId, config, handleStartForward]);
 
 	const handleStopForward = async (platform: keyof ForwardStreamConfig) => {
 		const platformConfig = config[platform];
@@ -426,23 +571,9 @@ export default function ForwardStreamSettings() {
 		}
 	};
 
-	const getPlatformIcon = (platform: keyof ForwardStreamConfig) => {
-		switch (platform) {
-			case "youtube":
-				return <YouTubeIcon sx={{ color: "#FF0000" }} />;
-			case "facebook":
-				return <FacebookIcon sx={{ color: "#1877F2" }} />;
-			case "twitch":
-				return <VideogameAssetIcon sx={{ color: "#9146FF" }} />;
-		}
-	};
-
-	const getPlatformName = (platform: keyof ForwardStreamConfig) => {
-		return platform.charAt(0).toUpperCase() + platform.slice(1);
-	};
-
 	const renderPlatformSettings = (platform: keyof ForwardStreamConfig) => {
 		const platformConfig = config[platform];
+		const isConnecting = connectingPlatforms.has(platform);
 
 		return (
 			<Accordion key={platform}>
@@ -493,16 +624,38 @@ export default function ForwardStreamSettings() {
 							disabled={!platformConfig.enabled}
 							size="small"
 						/>
-						<TextField
-							fullWidth
-							label="Stream Key"
-							type="password"
-							value={platformConfig.streamKey}
-							onChange={(e) => handleStreamKeyChange(platform, e.target.value)}
-							disabled={!platformConfig.enabled}
-							size="small"
-							helperText="Keep your stream key secure"
-						/>
+						<Box display="flex" gap={1} alignItems="flex-start">
+							<TextField
+								fullWidth
+								label="Stream Key"
+								type="password"
+								value={platformConfig.streamKey}
+								onChange={(e) => handleStreamKeyChange(platform, e.target.value)}
+								disabled={!platformConfig.enabled}
+								size="small"
+								helperText="Keep your stream key secure"
+							/>
+							<Tooltip title={`Connect ${getPlatformName(platform)} via OAuth to auto-fill stream key`}>
+								<span>
+									<Button
+										variant="outlined"
+										size="small"
+										startIcon={
+											isConnecting ? (
+												<CircularProgress size={16} />
+											) : (
+												<LinkIcon />
+											)
+										}
+										onClick={() => handleOAuthConnect(platform)}
+										disabled={!platformConfig.enabled || isConnecting}
+										sx={{ mt: 0.25, whiteSpace: "nowrap" }}
+									>
+										{isConnecting ? "Connecting..." : "Connect"}
+									</Button>
+								</span>
+							</Tooltip>
+						</Box>
 						<Box display="flex" gap={1}>
 							{!platformConfig.isLive ? (
 								<Button
@@ -569,30 +722,43 @@ export default function ForwardStreamSettings() {
 						</Alert>
 					)}
 
-			<Box display="flex" alignItems="center" gap={1} mb={2}>
-				<Typography variant="body2" color="text.secondary">
-					Main Stream Status:
-				</Typography>
-				{isStreaming ? (
-					<Chip 
-						label="LIVE" 
-						color="error" 
-						size="small"
-						sx={{ animation: "pulse 2s infinite" }}
-					/>
-				) : (
-					<Chip label="OFFLINE" size="small" />
-				)}
-				{isLiveStatusLoading && (
-					<CircularProgress size={16} />
-				)}
-			</Box>
+					<Box display="flex" alignItems="center" gap={1} mb={2}>
+						<Typography variant="body2" color="text.secondary">
+							Main Stream Status:
+						</Typography>
+						{isStreaming ? (
+							<Chip
+								label="LIVE"
+								color="error"
+								size="small"
+								sx={{ animation: "pulse 2s infinite" }}
+							/>
+						) : (
+							<Chip label="OFFLINE" size="small" />
+						)}
+						{isLiveStatusLoading && (
+							<CircularProgress size={16} />
+						)}
+					</Box>
 
-			<Stack spacing={1}>
-				{renderPlatformSettings("youtube")}
-				{renderPlatformSettings("facebook")}
-				{renderPlatformSettings("twitch")}
-			</Stack>
+					{isStreaming && (
+						<Button
+							variant="contained"
+							color="success"
+							startIcon={<PlayArrowIcon />}
+							onClick={handleStartAllForward}
+							sx={{ mb: 2 }}
+							fullWidth
+						>
+							Start All Forward
+						</Button>
+					)}
+
+					<Stack spacing={1}>
+						{renderPlatformSettings("youtube")}
+						{renderPlatformSettings("facebook")}
+						{renderPlatformSettings("twitch")}
+					</Stack>
 				</>
 			)}
 
