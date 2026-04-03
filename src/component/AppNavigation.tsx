@@ -66,7 +66,6 @@ export default function AppNavigation() {
 							icon={tab.icon}
 							label={tab.label}
 							iconPosition="start"
-							disabled={tab.path === "/multistream"} // Disable Multistream tab for now
 						/>
 					))}
 				</Tabs>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-type Platform = "youtube" | "twitch" | "facebook";
+type Platform = "youtube" | "twitch" | "facebook" | "tiktok";
 
 interface StreamCredentials {
 	streamKey: string;
@@ -11,6 +11,7 @@ interface TokenConfig {
 	tokenUrl: string;
 	clientId: string;
 	clientSecret: string;
+	clientIdParam?: string; // defaults to "client_id"
 }
 
 const TOKEN_CONFIGS: Record<Platform, TokenConfig> = {
@@ -29,6 +30,12 @@ const TOKEN_CONFIGS: Record<Platform, TokenConfig> = {
 		clientId: process.env.FACEBOOK_APP_ID ?? "",
 		clientSecret: process.env.FACEBOOK_APP_SECRET ?? "",
 	},
+	tiktok: {
+		tokenUrl: "https://open.tiktokapis.com/v2/oauth/token/",
+		clientId: process.env.TIKTOK_CLIENT_KEY ?? "",
+		clientSecret: process.env.TIKTOK_CLIENT_SECRET ?? "",
+		clientIdParam: "client_key",
+	},
 };
 
 const PLATFORMS = Object.keys(TOKEN_CONFIGS) as Platform[];
@@ -39,12 +46,13 @@ async function exchangeCodeForToken(
 	redirectUri: string,
 ): Promise<string> {
 	const config = TOKEN_CONFIGS[platform];
+	const clientIdParam = config.clientIdParam ?? "client_id";
 	const response = await fetch(config.tokenUrl, {
 		method: "POST",
 		headers: { "Content-Type": "application/x-www-form-urlencoded" },
 		body: new URLSearchParams({
 			code,
-			client_id: config.clientId,
+			[clientIdParam]: config.clientId,
 			client_secret: config.clientSecret,
 			redirect_uri: redirectUri,
 			grant_type: "authorization_code",
@@ -173,6 +181,41 @@ async function getFacebookStreamCredentials(
 	return { streamKey, serverUrl };
 }
 
+async function getTikTokStreamCredentials(
+	accessToken: string,
+): Promise<StreamCredentials> {
+	const response = await fetch(
+		"https://open.tiktokapis.com/v2/live/room/create/",
+		{
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json; charset=UTF-8",
+				Authorization: `Bearer ${accessToken}`,
+			},
+			body: JSON.stringify({ title: "Live Stream" }),
+		},
+	);
+
+	if (!response.ok) {
+		throw new Error("Failed to create TikTok live room");
+	}
+
+	const data = await response.json();
+	const serverUrl: string = data.data?.stream_url ?? "";
+	const streamKey: string = data.data?.stream_key ?? "";
+
+	if (!serverUrl || !streamKey) {
+		throw new Error(
+			"No stream credentials returned from TikTok. Please enter the stream key manually.",
+		);
+	}
+
+	return {
+		streamKey,
+		serverUrl,
+	};
+}
+
 async function getStreamCredentials(
 	platform: Platform,
 	accessToken: string,
@@ -184,6 +227,8 @@ async function getStreamCredentials(
 			return getTwitchStreamCredentials(accessToken);
 		case "facebook":
 			return getFacebookStreamCredentials(accessToken);
+		case "tiktok":
+			return getTikTokStreamCredentials(accessToken);
 	}
 }
 
