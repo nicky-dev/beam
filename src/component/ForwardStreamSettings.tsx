@@ -21,6 +21,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import YouTubeIcon from "@mui/icons-material/YouTube";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import VideogameAssetIcon from "@mui/icons-material/VideogameAsset"; // For Twitch
+import MusicNoteIcon from "@mui/icons-material/MusicNote"; // For TikTok
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -44,6 +45,7 @@ interface ForwardStreamConfig {
 	youtube: PlatformConfig;
 	facebook: PlatformConfig;
 	twitch: PlatformConfig;
+	tiktok: PlatformConfig;
 }
 
 interface PushInfo {
@@ -72,6 +74,12 @@ const defaultConfig: ForwardStreamConfig = {
 		serverUrl: "rtmp://live.twitch.tv/app/",
 		isLive: false,
 	},
+	tiktok: {
+		enabled: false,
+		streamKey: "",
+		serverUrl: "rtmp://push.tiktok.com/live/",
+		isLive: false,
+	},
 };
 
 function getPlatformIcon(platform: keyof ForwardStreamConfig) {
@@ -82,6 +90,8 @@ function getPlatformIcon(platform: keyof ForwardStreamConfig) {
 			return <FacebookIcon sx={{ color: "#1877F2" }} />;
 		case "twitch":
 			return <VideogameAssetIcon sx={{ color: "#9146FF" }} />;
+		case "tiktok":
+			return <MusicNoteIcon sx={{ color: "#EE1D52" }} />;
 	}
 }
 
@@ -200,7 +210,7 @@ export default function ForwardStreamSettings() {
 			const updated = { ...prev };
 
 			// Check each platform
-			for (const platform of ["youtube", "facebook", "twitch"] as const) {
+			for (const platform of ["youtube", "facebook", "twitch", "tiktok"] as const) {
 				const push = activePushes.find((p) =>
 					p.rtmpUrl.includes(prev[platform].serverUrl) ||
 					p.platform === platform
@@ -510,7 +520,7 @@ export default function ForwardStreamSettings() {
 		}
 
 		const enabledPlatforms = (
-			["youtube", "facebook", "twitch"] as const
+			["youtube", "facebook", "twitch", "tiktok"] as const
 		).filter(
 			(p) =>
 				config[p].enabled && !config[p].isLive && config[p].streamKey,
@@ -758,6 +768,7 @@ export default function ForwardStreamSettings() {
 						{renderPlatformSettings("youtube")}
 						{renderPlatformSettings("facebook")}
 						{renderPlatformSettings("twitch")}
+						{renderPlatformSettings("tiktok")}
 					</Stack>
 				</>
 			)}

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
-type Platform = "youtube" | "twitch" | "facebook";
+type Platform = "youtube" | "twitch" | "facebook" | "tiktok";
 
 interface OAuthConfig {
 	authUrl: string;
 	clientId: string;
 	scopes: string;
+	clientIdParam?: string; // defaults to "client_id"
 }
 
 const OAUTH_CONFIGS: Record<Platform, OAuthConfig> = {
@@ -23,6 +24,12 @@ const OAUTH_CONFIGS: Record<Platform, OAuthConfig> = {
 		authUrl: "https://www.facebook.com/dialog/oauth",
 		clientId: process.env.FACEBOOK_APP_ID ?? "",
 		scopes: "user_videos",
+	},
+	tiktok: {
+		authUrl: "https://www.tiktok.com/v2/auth/authorize",
+		clientId: process.env.TIKTOK_CLIENT_KEY ?? "",
+		scopes: "live.room.push_permission",
+		clientIdParam: "client_key",
 	},
 };
 
@@ -71,8 +78,9 @@ export async function GET(
 	const resolvedAppUrl = appUrl ?? "http://localhost:3080";
 	const redirectUri = `${resolvedAppUrl}/api/auth/${platform}/callback`;
 
+	const clientIdParam = config.clientIdParam ?? "client_id";
 	const searchParams = new URLSearchParams({
-		client_id: config.clientId,
+		[clientIdParam]: config.clientId,
 		redirect_uri: redirectUri,
 		response_type: "code",
 		scope: config.scopes,
