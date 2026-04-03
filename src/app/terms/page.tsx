@@ -1,4 +1,4 @@
-export default function TikTokTermsOfService() {
+export default function TermsOfService() {
 	return (
 		<html lang="en">
 			<head>
@@ -40,50 +40,80 @@ export default function TikTokTermsOfService() {
 					their respective RTMP endpoints.
 				</p>
 
-				<h2>2. TikTok Integration</h2>
+				<h2>2. Platform Integrations</h2>
 				<p>
-					Beam integrates with the TikTok Open API to allow you to stream
-					directly to TikTok Live. By connecting your TikTok account to Beam,
-					you authorise Beam to:
+					Beam integrates with third-party streaming platforms via their official
+					OAuth APIs. By connecting a platform account to Beam, you authorise
+					Beam to:
 				</p>
 				<ul>
 					<li>Obtain a short-lived OAuth access token on your behalf.</li>
 					<li>
-						Call the TikTok Live API to create a live room and retrieve your
-						stream URL and stream key.
+						Call the platform&rsquo;s API to retrieve your live-stream URL and
+						stream key.
 					</li>
 					<li>
-						Forward your encoded video stream to the TikTok RTMP ingest
-						endpoint.
+						Forward your encoded video stream to the platform&rsquo;s RTMP
+						ingest endpoint.
 					</li>
 				</ul>
 				<p>
-					Your use of the TikTok integration is also subject to{" "}
-					<a
-						href="https://developers.tiktok.com/doc/tiktok-api-developer-term-of-service"
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						TikTok&rsquo;s Developer Terms of Service
-					</a>{" "}
-					and{" "}
-					<a
-						href="https://www.tiktok.com/legal/terms-of-service"
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						TikTok&rsquo;s Terms of Service
-					</a>
-					.
+					Your use of each platform integration is also subject to that
+					platform&rsquo;s own terms of service:
 				</p>
+				<ul>
+					<li>
+						<a
+							href="https://www.tiktok.com/legal/terms-of-service"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							TikTok Terms of Service
+						</a>{" "}
+						&amp;{" "}
+						<a
+							href="https://developers.tiktok.com/doc/tiktok-api-developer-term-of-service"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							TikTok Developer Terms
+						</a>
+					</li>
+					<li>
+						<a
+							href="https://www.youtube.com/t/terms"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							YouTube Terms of Service
+						</a>
+					</li>
+					<li>
+						<a
+							href="https://www.twitch.tv/p/legal/terms-of-service/"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							Twitch Terms of Service
+						</a>
+					</li>
+					<li>
+						<a
+							href="https://www.facebook.com/terms.php"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							Meta / Facebook Terms of Service
+						</a>
+					</li>
+				</ul>
 
 				<h2>3. User Responsibilities</h2>
 				<p>You agree that you will:</p>
 				<ul>
 					<li>
 						Comply with the terms and community guidelines of all platforms you
-						stream to through Beam, including TikTok, YouTube, Twitch, and
-						Facebook.
+						stream to through Beam.
 					</li>
 					<li>
 						Not use Beam to stream content that is illegal, harmful, threatening,

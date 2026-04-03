@@ -1,4 +1,4 @@
-export default function TikTokPrivacyPolicy() {
+export default function PrivacyPolicy() {
 	return (
 		<html lang="en">
 			<head>
@@ -30,43 +30,96 @@ export default function TikTokPrivacyPolicy() {
 					application that lets you broadcast your stream to multiple platforms
 					simultaneously, including TikTok, YouTube, Twitch, and Facebook. This
 					Privacy Policy describes how we collect, use, and protect information
-					when you use Beam&rsquo;s integration with the TikTok platform.
+					when you use Beam.
 				</p>
 
 				<h2>1. Information We Collect</h2>
 				<p>
-					When you connect your TikTok account to Beam, we collect only the
-					information necessary to forward your live stream:
+					When you connect a streaming platform account to Beam, we collect only
+					the information necessary to forward your live stream:
 				</p>
 				<ul>
 					<li>
-						<strong>TikTok OAuth access token</strong> – used solely to obtain
-						your live-room stream credentials on your behalf.
+						<strong>OAuth access token</strong> – used solely to obtain your
+						live-stream credentials from the connected platform on your behalf.
 					</li>
 					<li>
 						<strong>Stream URL and stream key</strong> – the RTMP endpoint and
-						key returned by the TikTok API, used to forward your encoded video
-						stream to TikTok Live.
+						key returned by the platform&rsquo;s API, used to forward your
+						encoded video stream.
 					</li>
 				</ul>
 				<p>
-					We do not collect your TikTok profile information, followers, messages,
-					or any other personal data.
+					We do not collect your profile information, followers, messages, or any
+					other personal data from any connected platform.
 				</p>
 
 				<h2>2. How We Use Your Information</h2>
 				<p>The information collected is used exclusively to:</p>
 				<ul>
-					<li>Authenticate with the TikTok Open API on your behalf.</li>
 					<li>
-						Retrieve your live-room stream URL and stream key so that Beam can
-						forward your RTMP stream to TikTok.
+						Authenticate with the connected platform&rsquo;s API on your behalf.
 					</li>
-					<li>Save encrypted stream credentials locally on your device so you do not need to reconnect each session.</li>
+					<li>
+						Retrieve your live-stream URL and stream key so that Beam can forward
+						your RTMP stream to the selected platform.
+					</li>
+					<li>
+						Save encrypted stream credentials locally on your device so you do
+						not need to reconnect each session.
+					</li>
 				</ul>
-				<p>We do not sell, rent, or share your TikTok credentials or any data obtained through the TikTok API with third parties.</p>
+				<p>
+					We do not sell, rent, or share your credentials or any data obtained
+					through platform APIs with third parties.
+				</p>
 
-				<h2>3. Data Storage and Security</h2>
+				<h2>3. Supported Platforms</h2>
+				<p>
+					Beam currently supports the following streaming platforms. Your use of
+					Beam&rsquo;s integration with each platform is also subject to that
+					platform&rsquo;s own privacy policy:
+				</p>
+				<ul>
+					<li>
+						<a
+							href="https://www.tiktok.com/legal/privacy-policy"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							TikTok Privacy Policy
+						</a>
+					</li>
+					<li>
+						<a
+							href="https://policies.google.com/privacy"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							YouTube / Google Privacy Policy
+						</a>
+					</li>
+					<li>
+						<a
+							href="https://www.twitch.tv/p/legal/privacy-notice/"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							Twitch Privacy Notice
+						</a>
+					</li>
+					<li>
+						<a
+							href="https://www.facebook.com/policy.php"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							Meta / Facebook Privacy Policy
+						</a>
+					</li>
+				</ul>
+
+				<h2>4. Data Storage and Security</h2>
 				<p>
 					Stream credentials (server URL and stream key) are stored encrypted on
 					the Nostr decentralised network under your own cryptographic identity
@@ -75,39 +128,19 @@ export default function TikTokPrivacyPolicy() {
 					session.
 				</p>
 
-				<h2>4. Data Retention</h2>
+				<h2>5. Data Retention</h2>
 				<p>
-					Because Beam does not maintain its own servers, no TikTok-derived data
-					is retained by us. If you disconnect your TikTok account within Beam,
-					your stream credentials are removed from local storage immediately.
-				</p>
-
-				<h2>5. Third-Party Services</h2>
-				<p>
-					Beam uses the TikTok Open API under TikTok&rsquo;s{" "}
-					<a
-						href="https://developers.tiktok.com/doc/tiktok-api-developer-term-of-service"
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						Developer Terms of Service
-					</a>{" "}
-					and{" "}
-					<a
-						href="https://www.tiktok.com/legal/privacy-policy"
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						TikTok Privacy Policy
-					</a>
-					. Your use of TikTok through Beam is also subject to those policies.
+					Because Beam does not maintain its own servers, no platform-derived
+					data is retained by us. If you disconnect a platform account within
+					Beam, your stream credentials for that platform are removed from local
+					storage immediately.
 				</p>
 
 				<h2>6. Your Rights</h2>
 				<p>
-					You may disconnect your TikTok account from Beam at any time through
-					the Multistream settings panel. This will remove your stored stream
-					credentials from local storage.
+					You may disconnect any connected platform account from Beam at any time
+					through the Multistream settings panel. This will remove the stored
+					stream credentials for that platform from local storage.
 				</p>
 
 				<h2>7. Children&rsquo;s Privacy</h2>
