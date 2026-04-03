@@ -31,7 +31,8 @@ import { useQuery } from "@tanstack/react-query";
 import { default as NDK, NDKEvent, NDKKind, NDKUser } from "@nostr-dev-kit/ndk";
 
 // Backend API URL - can be configured via environment variable
-const PUSH_API_URL = process.env.NEXT_PUBLIC_PUSH_API_URL || "http://localhost:8080";
+const PUSH_API_URL =
+	process.env.NEXT_PUBLIC_PUSH_API_URL || "http://localhost:8080";
 
 interface PlatformConfig {
 	enabled: boolean;
@@ -141,7 +142,7 @@ export default function ForwardStreamSettings() {
 					authors: [activeUser.pubkey],
 				},
 			],
-			{ closeOnEose: false }
+			{ closeOnEose: false },
 		);
 
 		subscription.on("event", (event: NDKEvent) => {
@@ -167,7 +168,7 @@ export default function ForwardStreamSettings() {
 	// Check if user is currently streaming based on live event status
 	const isStreaming = useMemo(() => {
 		if (!liveEvent) return false;
-		const status = liveEvent.tags.find(tag => tag[0] === "status")?.[1];
+		const status = liveEvent.tags.find((tag) => tag[0] === "status")?.[1];
 		return status === "live";
 	}, [liveEvent]);
 
@@ -175,7 +176,7 @@ export default function ForwardStreamSettings() {
 	const streamId = useMemo(() => {
 		if (!liveEvent) return null;
 		// Use the event's deduplication key or d-tag as streamId
-		const dTag = liveEvent.tags.find(tag => tag[0] === "d")?.[1];
+		const dTag = liveEvent.tags.find((tag) => tag[0] === "d")?.[1];
 		return dTag || liveEvent.id;
 	}, [liveEvent]);
 
@@ -210,10 +211,16 @@ export default function ForwardStreamSettings() {
 			const updated = { ...prev };
 
 			// Check each platform
-			for (const platform of ["youtube", "facebook", "twitch", "tiktok"] as const) {
-				const push = activePushes.find((p) =>
-					p.rtmpUrl.includes(prev[platform].serverUrl) ||
-					p.platform === platform
+			for (const platform of [
+				"youtube",
+				"facebook",
+				"twitch",
+				"tiktok",
+			] as const) {
+				const push = activePushes.find(
+					(p) =>
+						p.rtmpUrl.includes(prev[platform].serverUrl) ||
+						p.platform === platform,
 				);
 				if (push) {
 					updated[platform] = {
@@ -362,6 +369,105 @@ export default function ForwardStreamSettings() {
 		saveConfig(newConfig);
 	};
 
+	const isValidOAuthMessage = useCallback(
+		(data: unknown, platform: keyof ForwardStreamConfig): boolean => {
+			return (
+				!!data &&
+				typeof data === "object" &&
+				typeof (data as Record<string, unknown>).type === "string" &&
+				typeof (data as Record<string, unknown>).platform === "string" &&
+				(data as Record<string, unknown>).platform === platform
+			);
+		},
+		[],
+	);
+
+	const handleOAuthSuccess = useCallback(
+		(data: Record<string, unknown>, platform: keyof ForwardStreamConfig) => {
+			const streamKey =
+				typeof data.streamKey === "string" ? data.streamKey : "";
+			const serverUrl =
+				typeof data.serverUrl === "string" ? data.serverUrl : "";
+			setConfig((prev) => {
+				const newConfig = {
+					...prev,
+					[platform]: {
+						...prev[platform],
+						streamKey: streamKey || prev[platform].streamKey,
+						serverUrl: serverUrl || prev[platform].serverUrl,
+						enabled: true,
+					},
+				};
+				saveConfig(newConfig);
+				return newConfig;
+			});
+		},
+		[saveConfig],
+	);
+
+	const handleOAuthError = useCallback(
+		(data: Record<string, unknown>, platform: keyof ForwardStreamConfig) => {
+			const errorMsg =
+				typeof data.error === "string" ? data.error : "Unknown error";
+			setForwardError(
+				`Failed to connect ${getPlatformName(platform)}: ${errorMsg}`,
+			);
+		},
+		[],
+	);
+
+	const handleOAuthMessage = useCallback(
+		(
+			event: MessageEvent,
+			platform: keyof ForwardStreamConfig,
+			handleMessage: (e: MessageEvent) => void,
+		) => {
+			if (event.origin !== window.location.origin) return;
+
+			const data = event.data as Record<string, unknown>;
+			if (!isValidOAuthMessage(data, platform)) return;
+
+			if (data.type === "oauth-success") {
+				handleOAuthSuccess(data, platform);
+			} else if (data.type === "oauth-error") {
+				handleOAuthError(data, platform);
+			}
+
+			setConnectingPlatforms((prev) => {
+				const next = new Set(prev);
+				next.delete(platform);
+				return next;
+			});
+			window.removeEventListener("message", handleMessage);
+		},
+		[isValidOAuthMessage, handleOAuthSuccess, handleOAuthError],
+	);
+
+	// Setup message listener for OAuth callback
+	const setupOAuthMessageListener = useCallback(
+		(platform: keyof ForwardStreamConfig, popup: Window) => {
+			const handleMessage = (event: MessageEvent) => {
+				handleOAuthMessage(event, platform, handleMessage);
+			};
+
+			window.addEventListener("message", handleMessage);
+
+			// Detect popup closed without completing OAuth
+			const pollTimer = setInterval(() => {
+				if (popup.closed) {
+					clearInterval(pollTimer);
+					window.removeEventListener("message", handleMessage);
+					setConnectingPlatforms((prev) => {
+						const next = new Set(prev);
+						next.delete(platform);
+						return next;
+					});
+				}
+			}, 500);
+		},
+		[handleOAuthMessage],
+	);
+
 	// Open OAuth popup to connect a platform and auto-retrieve its stream key
 	const handleOAuthConnect = useCallback(
 		(platform: keyof ForwardStreamConfig) => {
@@ -389,76 +495,44 @@ export default function ForwardStreamSettings() {
 			}, 100);
 
 			setConnectingPlatforms((prev) => new Set([...prev, platform]));
-
-			const handleMessage = (event: MessageEvent) => {
-				if (event.origin !== window.location.origin) return;
-
-				const data = event.data;
-				if (
-					!data ||
-					typeof data !== "object" ||
-					typeof data.type !== "string" ||
-					typeof data.platform !== "string" ||
-					data.platform !== platform
-				)
-					return;
-
-				if (data.type === "oauth-success") {
-					const streamKey =
-						typeof data.streamKey === "string" ? data.streamKey : "";
-					const serverUrl =
-						typeof data.serverUrl === "string" ? data.serverUrl : "";
-					setConfig((prev) => {
-						const newConfig = {
-							...prev,
-							[platform]: {
-								...prev[platform],
-								streamKey: streamKey || prev[platform].streamKey,
-								serverUrl: serverUrl || prev[platform].serverUrl,
-								enabled: true,
-							},
-						};
-						saveConfig(newConfig);
-						return newConfig;
-					});
-				} else if (data.type === "oauth-error") {
-					const errorMsg =
-						typeof data.error === "string" ? data.error : "Unknown error";
-					setForwardError(
-						`Failed to connect ${getPlatformName(platform)}: ${errorMsg}`,
-					);
-				}
-
-				setConnectingPlatforms((prev) => {
-					const next = new Set(prev);
-					next.delete(platform);
-					return next;
-				});
-				window.removeEventListener("message", handleMessage);
-			};
-
-			window.addEventListener("message", handleMessage);
-
-			// Detect popup closed without completing OAuth
-			const pollTimer = setInterval(() => {
-				if (popup.closed) {
-					clearInterval(pollTimer);
-					window.removeEventListener("message", handleMessage);
-					setConnectingPlatforms((prev) => {
-						const next = new Set(prev);
-						next.delete(platform);
-						return next;
-					});
-				}
-			}, 500);
+			setupOAuthMessageListener(platform, popup);
 		},
-		[saveConfig],
+		[setupOAuthMessageListener],
+	);
+
+	const callStartPushApi = useCallback(
+		async (platform: keyof ForwardStreamConfig) => {
+			const platformConfig = config[platform];
+			const response = await fetch(`${PUSH_API_URL}/v1/push/start`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					streamId,
+					streamKey: platformConfig.streamKey,
+					rtmpUrl: platformConfig.serverUrl,
+				}),
+			});
+
+			if (!response.ok) {
+				const error = await response
+					.json()
+					.catch(() => ({ message: "Failed to start forward" }));
+				throw new Error(error.message || "Failed to start forward");
+			}
+
+			return response.json();
+		},
+		[config, streamId],
 	);
 
 	const handleStartForward = useCallback(
 		async (platform: keyof ForwardStreamConfig) => {
 			if (!isStreaming || !streamId) {
-				setForwardError("Please start your main stream first before forwarding.");
+				setForwardError(
+					"Please start your main stream first before forwarding.",
+				);
 				return;
 			}
 
@@ -471,24 +545,7 @@ export default function ForwardStreamSettings() {
 			setForwardError(null);
 
 			try {
-				const response = await fetch(`${PUSH_API_URL}/v1/push/start`, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						streamId,
-						streamKey: platformConfig.streamKey,
-						rtmpUrl: platformConfig.serverUrl,
-					}),
-				});
-
-				if (!response.ok) {
-					const error = await response.json().catch(() => ({ message: "Failed to start forward" }));
-					throw new Error(error.message || "Failed to start forward");
-				}
-
-				const data = await response.json();
+				const data = await callStartPushApi(platform);
 				const pushId = data.pushId;
 
 				setConfig((prev) => ({
@@ -504,26 +561,25 @@ export default function ForwardStreamSettings() {
 				pushListQuery.refetch();
 			} catch (error) {
 				console.error(`Failed to start forward to ${platform}:`, error);
-				setForwardError(error instanceof Error ? error.message : "Failed to start forward");
+				setForwardError(
+					error instanceof Error ? error.message : "Failed to start forward",
+				);
 			}
 		},
-		[isStreaming, streamId, config, pushListQuery],
+		[isStreaming, streamId, config, callStartPushApi, pushListQuery],
 	);
 
 	// Start forwarding to all enabled platforms at once
 	const handleStartAllForward = useCallback(async () => {
 		if (!isStreaming || !streamId) {
-			setForwardError(
-				"Please start your main stream first before forwarding.",
-			);
+			setForwardError("Please start your main stream first before forwarding.");
 			return;
 		}
 
 		const enabledPlatforms = (
 			["youtube", "facebook", "twitch", "tiktok"] as const
 		).filter(
-			(p) =>
-				config[p].enabled && !config[p].isLive && config[p].streamKey,
+			(p) => config[p].enabled && !config[p].isLive && config[p].streamKey,
 		);
 
 		if (enabledPlatforms.length === 0) {
@@ -560,7 +616,9 @@ export default function ForwardStreamSettings() {
 			});
 
 			if (!response.ok) {
-				const error = await response.json().catch(() => ({ message: "Failed to stop forward" }));
+				const error = await response
+					.json()
+					.catch(() => ({ message: "Failed to stop forward" }));
 				throw new Error(error.message || "Failed to stop forward");
 			}
 
@@ -577,7 +635,9 @@ export default function ForwardStreamSettings() {
 			pushListQuery.refetch();
 		} catch (error) {
 			console.error(`Failed to stop forward to ${platform}:`, error);
-			setForwardError(error instanceof Error ? error.message : "Failed to stop forward");
+			setForwardError(
+				error instanceof Error ? error.message : "Failed to stop forward",
+			);
 		}
 	};
 
@@ -640,12 +700,16 @@ export default function ForwardStreamSettings() {
 								label="Stream Key"
 								type="password"
 								value={platformConfig.streamKey}
-								onChange={(e) => handleStreamKeyChange(platform, e.target.value)}
+								onChange={(e) =>
+									handleStreamKeyChange(platform, e.target.value)
+								}
 								disabled={!platformConfig.enabled}
 								size="small"
 								helperText="Keep your stream key secure"
 							/>
-							<Tooltip title={`Connect ${getPlatformName(platform)} via OAuth to auto-fill stream key`}>
+							<Tooltip
+								title={`Connect ${getPlatformName(platform)} via OAuth to auto-fill stream key`}
+							>
 								<span>
 									<Button
 										variant="outlined"
@@ -709,9 +773,7 @@ export default function ForwardStreamSettings() {
 			<Box display="flex" alignItems="center" gap={1} mb={2}>
 				<SettingsIcon />
 				<Typography variant="h6">Forward Stream Settings</Typography>
-				{isSaving && (
-					<CircularProgress size={20} sx={{ ml: 1 }} />
-				)}
+				{isSaving && <CircularProgress size={20} sx={{ ml: 1 }} />}
 			</Box>
 
 			{configQuery.isLoading ? (
@@ -722,12 +784,17 @@ export default function ForwardStreamSettings() {
 				<>
 					{!isStreaming && (
 						<Alert severity="info" sx={{ mb: 2 }}>
-							Start your main stream first to enable forwarding to other platforms.
+							Start your main stream first to enable forwarding to other
+							platforms.
 						</Alert>
 					)}
 
 					{forwardError && (
-						<Alert severity="error" sx={{ mb: 2 }} onClose={() => setForwardError(null)}>
+						<Alert
+							severity="error"
+							sx={{ mb: 2 }}
+							onClose={() => setForwardError(null)}
+						>
 							{forwardError}
 						</Alert>
 					)}
@@ -746,9 +813,7 @@ export default function ForwardStreamSettings() {
 						) : (
 							<Chip label="OFFLINE" size="small" />
 						)}
-						{isLiveStatusLoading && (
-							<CircularProgress size={16} />
-						)}
+						{isLiveStatusLoading && <CircularProgress size={16} />}
 					</Box>
 
 					{isStreaming && (
