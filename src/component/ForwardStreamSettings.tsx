@@ -16,6 +16,8 @@ import {
 	Alert,
 	CircularProgress,
 	Tooltip,
+	IconButton,
+	InputAdornment,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import YouTubeIcon from "@mui/icons-material/YouTube";
@@ -26,6 +28,8 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import SettingsIcon from "@mui/icons-material/Settings";
 import LinkIcon from "@mui/icons-material/Link";
+import LinkOffIcon from "@mui/icons-material/LinkOff";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useActiveUser, useNdk } from "nostr-hooks";
 import { useQuery } from "@tanstack/react-query";
 import { default as NDK, NDKEvent, NDKKind, NDKUser } from "@nostr-dev-kit/ndk";
@@ -339,34 +343,25 @@ export default function ForwardStreamSettings() {
 		saveConfig(newConfig);
 	};
 
-	const handleStreamKeyChange = (
-		platform: keyof ForwardStreamConfig,
-		streamKey: string,
-	) => {
+	const handleDisconnect = (platform: keyof ForwardStreamConfig) => {
 		const newConfig = {
 			...config,
 			[platform]: {
 				...config[platform],
-				streamKey,
+				streamKey: "",
+				serverUrl: defaultConfig[platform].serverUrl,
 			},
 		};
 		setConfig(newConfig);
 		saveConfig(newConfig);
 	};
 
-	const handleServerUrlChange = (
-		platform: keyof ForwardStreamConfig,
-		serverUrl: string,
-	) => {
-		const newConfig = {
-			...config,
-			[platform]: {
-				...config[platform],
-				serverUrl,
-			},
-		};
-		setConfig(newConfig);
-		saveConfig(newConfig);
+	const handleCopyToClipboard = async (text: string) => {
+		try {
+			await navigator.clipboard.writeText(text);
+		} catch {
+			// Silently fail if clipboard access is denied
+		}
 	};
 
 	const isValidOAuthMessage = useCallback(
@@ -644,6 +639,7 @@ export default function ForwardStreamSettings() {
 	const renderPlatformSettings = (platform: keyof ForwardStreamConfig) => {
 		const platformConfig = config[platform];
 		const isConnecting = connectingPlatforms.has(platform);
+		const isConnected = !!platformConfig.streamKey;
 
 		return (
 			<Accordion key={platform}>
@@ -658,104 +654,181 @@ export default function ForwardStreamSettings() {
 						<Box display="flex" alignItems="center" gap={1}>
 							{getPlatformIcon(platform)}
 							<Typography>{getPlatformName(platform)}</Typography>
-						</Box>
-						<Box display="flex" alignItems="center" gap={1}>
-							{platformConfig.isLive && (
+							{platformConfig.isLive ? (
 								<Chip
 									label="LIVE"
 									color="error"
 									size="small"
 									sx={{ animation: "pulse 2s infinite" }}
 								/>
+							) : isConnected ? (
+								<Chip
+									label="Connected"
+									color="success"
+									size="small"
+									variant="outlined"
+								/>
+							) : (
+								<Chip
+									label="Not Connected"
+									size="small"
+									variant="outlined"
+								/>
 							)}
-							<FormControlLabel
-								control={
-									<Switch
-										checked={platformConfig.enabled}
-										onChange={(e) =>
-											handleTogglePlatform(platform, e.target.checked)
-										}
-										onClick={(e) => e.stopPropagation()}
-									/>
-								}
-								label="Enable"
-								onClick={(e) => e.stopPropagation()}
-							/>
 						</Box>
+						<FormControlLabel
+							control={
+								<Switch
+									checked={platformConfig.enabled}
+									onChange={(e) =>
+										handleTogglePlatform(platform, e.target.checked)
+									}
+									onClick={(e) => e.stopPropagation()}
+								/>
+							}
+							label="Enable"
+							onClick={(e) => e.stopPropagation()}
+						/>
 					</Box>
 				</AccordionSummary>
 				<AccordionDetails>
 					<Stack spacing={2}>
-						<TextField
-							fullWidth
-							label="Server URL"
-							value={platformConfig.serverUrl}
-							onChange={(e) => handleServerUrlChange(platform, e.target.value)}
-							disabled={!platformConfig.enabled}
-							size="small"
-						/>
-						<Box display="flex" gap={1} alignItems="flex-start">
-							<TextField
-								fullWidth
-								label="Stream Key"
-								type="password"
-								value={platformConfig.streamKey}
-								onChange={(e) =>
-									handleStreamKeyChange(platform, e.target.value)
-								}
-								disabled={!platformConfig.enabled}
-								size="small"
-								helperText="Keep your stream key secure"
-							/>
-							<Tooltip
-								title={`Connect ${getPlatformName(platform)} via OAuth to auto-fill stream key`}
-							>
-								<span>
-									<Button
-										variant="outlined"
-										size="small"
-										startIcon={
-											isConnecting ? (
-												<CircularProgress size={16} />
-											) : (
-												<LinkIcon />
-											)
-										}
-										onClick={() => handleOAuthConnect(platform)}
-										disabled={!platformConfig.enabled || isConnecting}
-										sx={{ mt: 0.25, whiteSpace: "nowrap" }}
-									>
-										{isConnecting ? "Connecting..." : "Connect"}
-									</Button>
-								</span>
-							</Tooltip>
-						</Box>
-						<Box display="flex" gap={1}>
-							{!platformConfig.isLive ? (
-								<Button
-									variant="contained"
-									color="success"
-									startIcon={<PlayArrowIcon />}
-									onClick={() => handleStartForward(platform)}
-									disabled={
-										!platformConfig.enabled || !platformConfig.streamKey
-									}
+						{isConnected ? (
+							<>
+								<TextField
 									fullWidth
+									label="Server URL"
+									value={platformConfig.serverUrl}
+									size="small"
+									slotProps={{
+										input: {
+											readOnly: true,
+											endAdornment: (
+												<InputAdornment position="end">
+													<Tooltip title="Copy Server URL">
+														<IconButton
+															size="small"
+															onClick={() =>
+																handleCopyToClipboard(
+																	platformConfig.serverUrl,
+																)
+															}
+														>
+															<ContentCopyIcon fontSize="small" />
+														</IconButton>
+													</Tooltip>
+												</InputAdornment>
+											),
+										},
+									}}
+								/>
+								<TextField
+									fullWidth
+									label="Stream Key"
+									type="password"
+									value={platformConfig.streamKey}
+									size="small"
+									slotProps={{
+										input: {
+											readOnly: true,
+											endAdornment: (
+												<InputAdornment position="end">
+													<Tooltip title="Copy Stream Key">
+														<IconButton
+															size="small"
+															onClick={() =>
+																handleCopyToClipboard(
+																	platformConfig.streamKey,
+																)
+															}
+														>
+															<ContentCopyIcon fontSize="small" />
+														</IconButton>
+													</Tooltip>
+												</InputAdornment>
+											),
+										},
+									}}
+								/>
+							</>
+						) : (
+							<Alert severity="info" variant="outlined">
+								Connect your {getPlatformName(platform)} account to auto-fill
+								stream credentials.
+							</Alert>
+						)}
+
+						<Stack direction="row" spacing={1}>
+							{isConnected ? (
+								<Tooltip
+									title={
+										platformConfig.isLive
+											? "Stop forwarding before disconnecting"
+											: ""
+									}
 								>
-									Start Forward
-								</Button>
+									<span>
+										<Button
+											variant="outlined"
+											color="error"
+											size="small"
+											startIcon={<LinkOffIcon />}
+											onClick={() => handleDisconnect(platform)}
+											disabled={platformConfig.isLive}
+										>
+											Disconnect
+										</Button>
+									</span>
+								</Tooltip>
 							) : (
 								<Button
-									variant="contained"
-									color="error"
-									startIcon={<StopIcon />}
-									onClick={() => handleStopForward(platform)}
-									fullWidth
+									variant="outlined"
+									size="small"
+									startIcon={
+										isConnecting ? (
+											<CircularProgress size={16} />
+										) : (
+											<LinkIcon />
+										)
+									}
+									onClick={() => handleOAuthConnect(platform)}
+									disabled={!platformConfig.enabled || isConnecting}
 								>
-									Stop Forward
+									{isConnecting
+										? "Connecting..."
+										: `Connect ${getPlatformName(platform)}`}
 								</Button>
 							)}
-						</Box>
+						</Stack>
+
+						{isConnected && (
+							<Box>
+								{!platformConfig.isLive ? (
+									<Button
+										variant="contained"
+										color="success"
+										startIcon={<PlayArrowIcon />}
+										onClick={() => handleStartForward(platform)}
+										disabled={
+											!platformConfig.enabled || !platformConfig.streamKey
+										}
+										fullWidth
+									>
+										Start Forward
+									</Button>
+								) : (
+									<Button
+										variant="contained"
+										color="error"
+										startIcon={<StopIcon />}
+										onClick={() => handleStopForward(platform)}
+										fullWidth
+									>
+										Stop Forward
+									</Button>
+								)}
+							</Box>
+						)}
 					</Stack>
 				</AccordionDetails>
 			</Accordion>
