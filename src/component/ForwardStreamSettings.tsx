@@ -6,8 +6,6 @@ import {
 	Typography,
 	TextField,
 	Button,
-	Switch,
-	FormControlLabel,
 	Chip,
 	Stack,
 	Accordion,
@@ -39,7 +37,6 @@ const PUSH_API_URL =
 	process.env.NEXT_PUBLIC_PUSH_API_URL || "http://localhost:8080";
 
 interface PlatformConfig {
-	enabled: boolean;
 	streamKey: string;
 	serverUrl: string;
 	isLive: boolean;
@@ -62,25 +59,21 @@ interface PushInfo {
 
 const defaultConfig: ForwardStreamConfig = {
 	youtube: {
-		enabled: false,
 		streamKey: "",
 		serverUrl: "rtmp://a.rtmp.youtube.com/live2/",
 		isLive: false,
 	},
 	facebook: {
-		enabled: false,
 		streamKey: "",
 		serverUrl: "rtmps://live-api-s.facebook.com:443/rtmp/",
 		isLive: false,
 	},
 	twitch: {
-		enabled: false,
 		streamKey: "",
 		serverUrl: "rtmp://live.twitch.tv/app/",
 		isLive: false,
 	},
 	tiktok: {
-		enabled: false,
 		streamKey: "",
 		serverUrl: "rtmp://push.tiktok.com/live/",
 		isLive: false,
@@ -328,21 +321,6 @@ export default function ForwardStreamSettings() {
 		}
 	}, [config]);
 
-	const handleTogglePlatform = (
-		platform: keyof ForwardStreamConfig,
-		enabled: boolean,
-	) => {
-		const newConfig = {
-			...config,
-			[platform]: {
-				...config[platform],
-				enabled,
-			},
-		};
-		setConfig(newConfig);
-		saveConfig(newConfig);
-	};
-
 	const handleDisconnect = (platform: keyof ForwardStreamConfig) => {
 		const newConfig = {
 			...config,
@@ -390,7 +368,6 @@ export default function ForwardStreamSettings() {
 						...prev[platform],
 						streamKey: streamKey || prev[platform].streamKey,
 						serverUrl: serverUrl || prev[platform].serverUrl,
-						enabled: true,
 					},
 				};
 				saveConfig(newConfig);
@@ -571,22 +548,22 @@ export default function ForwardStreamSettings() {
 			return;
 		}
 
-		const enabledPlatforms = (
+		const connectedPlatforms = (
 			["youtube", "facebook", "twitch", "tiktok"] as const
 		).filter(
-			(p) => config[p].enabled && !config[p].isLive && config[p].streamKey,
+			(p) => !config[p].isLive && config[p].streamKey,
 		);
 
-		if (enabledPlatforms.length === 0) {
+		if (connectedPlatforms.length === 0) {
 			setForwardError(
-				"No platforms are enabled and ready. Enable at least one platform with a stream key.",
+				"No platforms are connected and ready. Connect at least one platform first.",
 			);
 			return;
 		}
 
 		setForwardError(null);
 		await Promise.allSettled(
-			enabledPlatforms.map((p) => handleStartForward(p)),
+			connectedPlatforms.map((p) => handleStartForward(p)),
 		);
 	}, [isStreaming, streamId, config, handleStartForward]);
 
@@ -647,48 +624,33 @@ export default function ForwardStreamSettings() {
 					<Box
 						display="flex"
 						alignItems="center"
-						justifyContent="space-between"
+						gap={1}
 						width="100%"
 						mr={2}
 					>
-						<Box display="flex" alignItems="center" gap={1}>
-							{getPlatformIcon(platform)}
-							<Typography>{getPlatformName(platform)}</Typography>
-							{platformConfig.isLive ? (
-								<Chip
-									label="LIVE"
-									color="error"
-									size="small"
-									sx={{ animation: "pulse 2s infinite" }}
-								/>
-							) : isConnected ? (
-								<Chip
-									label="Connected"
-									color="success"
-									size="small"
-									variant="outlined"
-								/>
-							) : (
-								<Chip
-									label="Not Connected"
-									size="small"
-									variant="outlined"
-								/>
-							)}
-						</Box>
-						<FormControlLabel
-							control={
-								<Switch
-									checked={platformConfig.enabled}
-									onChange={(e) =>
-										handleTogglePlatform(platform, e.target.checked)
-									}
-									onClick={(e) => e.stopPropagation()}
-								/>
-							}
-							label="Enable"
-							onClick={(e) => e.stopPropagation()}
-						/>
+						{getPlatformIcon(platform)}
+						<Typography>{getPlatformName(platform)}</Typography>
+						{platformConfig.isLive ? (
+							<Chip
+								label="LIVE"
+								color="error"
+								size="small"
+								sx={{ animation: "pulse 2s infinite" }}
+							/>
+						) : isConnected ? (
+							<Chip
+								label="Connected"
+								color="success"
+								size="small"
+								variant="outlined"
+							/>
+						) : (
+							<Chip
+								label="Not Connected"
+								size="small"
+								variant="outlined"
+							/>
+						)}
 					</Box>
 				</AccordionSummary>
 				<AccordionDetails>
@@ -792,7 +754,7 @@ export default function ForwardStreamSettings() {
 										)
 									}
 									onClick={() => handleOAuthConnect(platform)}
-									disabled={!platformConfig.enabled || isConnecting}
+									disabled={isConnecting}
 								>
 									{isConnecting
 										? "Connecting..."
@@ -809,9 +771,7 @@ export default function ForwardStreamSettings() {
 										color="success"
 										startIcon={<PlayArrowIcon />}
 										onClick={() => handleStartForward(platform)}
-										disabled={
-											!platformConfig.enabled || !platformConfig.streamKey
-										}
+										disabled={!platformConfig.streamKey}
 										fullWidth
 									>
 										Start Forward
