@@ -1,6 +1,7 @@
 "use client";
 import React, { FormEvent, useMemo } from "react";
 import {
+	Alert,
 	Box,
 	Button,
 	CircularProgress,
@@ -22,8 +23,12 @@ type QueryResult = NDKEvent | null;
 export default function EditStreamingInfo() {
 	const [open, setOpen] = React.useState(false);
 	const [busy, setBusy] = React.useState(false);
+	const [error, setError] = React.useState<string | null>(null);
 	const handleOpen = () => setOpen(true);
-	const handleClose = () => setOpen(false);
+	const handleClose = () => {
+		setError(null);
+		setOpen(false);
+	};
 	const { ndk } = useNdk();
 	const { activeUser } = useActiveUser();
 
@@ -97,12 +102,15 @@ export default function EditStreamingInfo() {
 		});
 
 		setBusy(true);
+		setError(null);
 		try {
 			await event.publish();
+			handleClose();
+		} catch (e) {
+			setError(e instanceof Error ? e.message : "Failed to save streaming info. Please try again.");
 		} finally {
 			setBusy(false);
 		}
-		handleClose();
 	};
 
 	return (
@@ -125,7 +133,12 @@ export default function EditStreamingInfo() {
 			>
 				<DialogTitle>{"Edit Streaming Info"}</DialogTitle>
 				<DialogContent>
-					{info.isFetching ? (
+					{error && (
+						<Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+							{error}
+						</Alert>
+					)}
+					{info.isLoading ? (
 						<CircularProgress />
 					) : info.data ? (
 						<Box display="flex" flexDirection="column">
@@ -159,7 +172,7 @@ export default function EditStreamingInfo() {
 					<Button onClick={handleClose} disabled={busy}>
 						Cancel
 					</Button>
-					<Button type="submit" disabled={!info.data} loading={busy}>
+					<Button type="submit" disabled={!info.data || info.isFetching} loading={busy}>
 						Save
 					</Button>
 				</DialogActions>
