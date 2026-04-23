@@ -30,8 +30,6 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import LinkIcon from "@mui/icons-material/Link";
 import LinkOffIcon from "@mui/icons-material/LinkOff";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import EditIcon from "@mui/icons-material/Edit";
-import SaveIcon from "@mui/icons-material/Save";
 import { useActiveUser, useNdk } from "nostr-hooks";
 import { useQuery } from "@tanstack/react-query";
 import { default as NDK, NDKEvent, NDKKind, NDKUser } from "@nostr-dev-kit/ndk";
@@ -45,8 +43,12 @@ const PUSH_API_URL =
 interface PlatformConfig {
 	streamKey: string;
 	serverUrl: string;
+	accessToken: string;
+	refreshToken?: string;
+	tokenExpiresAt?: number;
+	broadcastId?: string;
 	isLive: boolean;
-	pushId?: string; // Store pushId from API for stopping
+	pushId?: string;
 }
 
 interface ForwardStreamConfig {
@@ -67,21 +69,25 @@ const defaultConfig: ForwardStreamConfig = {
 	youtube: {
 		streamKey: "",
 		serverUrl: PLATFORM_RTMP_URLS.youtube,
+		accessToken: "",
 		isLive: false,
 	},
 	facebook: {
 		streamKey: "",
 		serverUrl: PLATFORM_RTMP_URLS.facebook,
+		accessToken: "",
 		isLive: false,
 	},
 	twitch: {
 		streamKey: "",
 		serverUrl: PLATFORM_RTMP_URLS.twitch,
+		accessToken: "",
 		isLive: false,
 	},
 	tiktok: {
 		streamKey: "",
 		serverUrl: PLATFORM_RTMP_URLS.tiktok,
+		accessToken: "",
 		isLive: false,
 	},
 };
@@ -201,6 +207,30 @@ export default function ForwardStreamSettings() {
 		},
 	});
 
+	// Query preset config for broadcast title/description
+	const presetQuery = useQuery<unknown, unknown, QueryResult, QueryKey>({
+		queryKey: ["preset-config", { ndk, activeUser }],
+		enabled: !!ndk && !!activeUser,
+		queryFn: async ({ queryKey }) => {
+			const { ndk, activeUser } = queryKey[1];
+			if (!ndk || !activeUser) return null;
+			return await ndk.fetchEvent({
+				limit: 1,
+				kinds: [30078],
+				"#d": ["beamlivestudio-config"],
+				authors: [activeUser.pubkey],
+			});
+		},
+	});
+
+	const presetData = useMemo(() => {
+		try {
+			return JSON.parse(presetQuery.data?.content || "{}") as { title?: string; summary?: string; image?: string };
+		} catch {
+			return {} as { title?: string; summary?: string; image?: string };
+		}
+	}, [presetQuery.data?.content]);
+
 	const [config, setConfig] = useState<ForwardStreamConfig>(defaultConfig);
 	const [isSaving, setIsSaving] = useState(false);
 	const [forwardError, setForwardError] = useState<string | null>(null);
@@ -218,11 +248,8 @@ export default function ForwardStreamSettings() {
 	});
 	const [decryptError, setDecryptError] = useState(false);
 
-	// Manual setup state per platform
-	const [manualSetup, setManualSetup] = useState<Partial<Record<keyof ForwardStreamConfig, boolean>>>({});
-	const [manualFields, setManualFields] = useState<
-		Partial<Record<keyof ForwardStreamConfig, { serverUrl: string; streamKey: string }>>
-	>({});
+	// Platforms currently creating a broadcast
+	const [broadcastCreating, setBroadcastCreating] = useState<Set<keyof ForwardStreamConfig>>(new Set());
 
 	// Update isLive status based on push list
 	useEffect(() => {
@@ -360,6 +387,10 @@ export default function ForwardStreamSettings() {
 				...config[platform],
 				streamKey: "",
 				serverUrl: defaultConfig[platform].serverUrl,
+				accessToken: "",
+				refreshToken: undefined,
+				tokenExpiresAt: undefined,
+				broadcastId: undefined,
 			},
 		};
 		setConfig(newConfig);
@@ -394,6 +425,10 @@ export default function ForwardStreamSettings() {
 				typeof data.streamKey === "string" ? data.streamKey : "";
 			const serverUrl =
 				typeof data.serverUrl === "string" ? data.serverUrl : "";
+			const accessToken =
+				typeof data.accessToken === "string" ? data.accessToken : "";
+			const refreshToken =
+				typeof data.refreshToken === "string" ? data.refreshToken : undefined;
 			setConfig((prev) => {
 				const newConfig = {
 					...prev,
@@ -401,6 +436,8 @@ export default function ForwardStreamSettings() {
 						...prev[platform],
 						streamKey: streamKey || prev[platform].streamKey,
 						serverUrl: serverUrl || prev[platform].serverUrl,
+						accessToken,
+						refreshToken,
 					},
 				};
 				saveConfig(newConfig);
@@ -505,32 +542,6 @@ export default function ForwardStreamSettings() {
 		[setupOAuthMessageListener],
 	);
 
-	const callStartPushApi = useCallback(
-		async (platform: keyof ForwardStreamConfig) => {
-			const platformConfig = config[platform];
-			const response = await fetch(`${PUSH_API_URL}/v1/push/start`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					streamId,
-					streamKey: platformConfig.streamKey,
-					rtmpUrl: platformConfig.serverUrl,
-				}),
-			});
-
-			if (!response.ok) {
-				const error = await response
-					.json()
-					.catch(() => ({ message: "Failed to start forward" }));
-				throw new Error(error.message || "Failed to start forward");
-			}
-
-			return response.json();
-		},
-		[config, streamId],
-	);
 
 	const handleStartForward = useCallback(
 		async (platform: keyof ForwardStreamConfig) => {
@@ -542,36 +553,100 @@ export default function ForwardStreamSettings() {
 			}
 
 			const platformConfig = config[platform];
-			if (!platformConfig.streamKey || !platformConfig.serverUrl) {
-				setForwardError("Please configure server URL and stream key first.");
+			if (!platformConfig.accessToken) {
+				setForwardError(`Please connect your ${getPlatformName(platform)} account first.`);
 				return;
 			}
 
 			setForwardError(null);
 
 			try {
-				const data = await callStartPushApi(platform);
-				const pushId = data.pushId;
+				// Step 1: Create broadcast via API
+				setBroadcastCreating((prev) => new Set([...prev, platform]));
+
+				const broadcastResponse = await fetch(`/api/stream/${platform}/broadcast`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						accessToken: platformConfig.accessToken,
+						title: presetData.title || "Live Stream",
+						description: presetData.summary || "",
+						image: presetData.image,
+					}),
+				});
+
+				if (!broadcastResponse.ok) {
+					const err = await broadcastResponse.json().catch(() => ({ message: "Failed to create broadcast" }));
+					throw new Error(err.message || "Failed to create broadcast");
+				}
+
+				const broadcastData = (await broadcastResponse.json()) as {
+					broadcastId: string;
+					streamKey?: string;
+					serverUrl?: string;
+				};
+
+				// Step 2: Update config with broadcast response (FB/TikTok may return new credentials)
+				const updatedPlatformConfig = {
+					...platformConfig,
+					broadcastId: broadcastData.broadcastId,
+					streamKey: broadcastData.streamKey || platformConfig.streamKey,
+					serverUrl: broadcastData.serverUrl || platformConfig.serverUrl,
+				};
 
 				setConfig((prev) => ({
 					...prev,
-					[platform]: {
-						...prev[platform],
-						isLive: true,
-						pushId,
-					},
+					[platform]: updatedPlatformConfig,
 				}));
 
-				// Refetch push list
+				// Step 3: Call push API with (potentially updated) credentials
+				const pushResponse = await fetch(`${PUSH_API_URL}/v1/push/start`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						streamId,
+						streamKey: updatedPlatformConfig.streamKey,
+						rtmpUrl: updatedPlatformConfig.serverUrl,
+					}),
+				});
+
+				if (!pushResponse.ok) {
+					const error = await pushResponse.json().catch(() => ({ message: "Failed to start forward" }));
+					throw new Error(error.message || "Failed to start forward");
+				}
+
+				const pushData = await pushResponse.json();
+
+				// Step 4: Update state and save to Nostr
+				setConfig((prev) => {
+					const newConfig = {
+						...prev,
+						[platform]: {
+							...prev[platform],
+							...updatedPlatformConfig,
+							isLive: true,
+							pushId: pushData.pushId,
+						},
+					};
+					saveConfig(newConfig);
+					return newConfig;
+				});
+
 				pushListQuery.refetch();
 			} catch (error) {
 				console.error(`Failed to start forward to ${platform}:`, error);
 				setForwardError(
 					error instanceof Error ? error.message : "Failed to start forward",
 				);
+			} finally {
+				setBroadcastCreating((prev) => {
+					const next = new Set(prev);
+					next.delete(platform);
+					return next;
+				});
 			}
 		},
-		[isStreaming, streamId, config, callStartPushApi, pushListQuery],
+		[isStreaming, streamId, config, presetData, saveConfig, pushListQuery],
 	);
 
 	// Start forwarding to all enabled platforms at once
@@ -584,7 +659,7 @@ export default function ForwardStreamSettings() {
 		const connectedPlatforms = (
 			["youtube", "facebook", "twitch", "tiktok"] as const
 		).filter(
-			(p) => !config[p].isLive && config[p].streamKey,
+			(p) => !config[p].isLive && (config[p].accessToken),
 		);
 
 		if (connectedPlatforms.length === 0) {
@@ -627,14 +702,19 @@ export default function ForwardStreamSettings() {
 				throw new Error(error.message || "Failed to stop forward");
 			}
 
-			setConfig((prev) => ({
-				...prev,
-				[platform]: {
-					...prev[platform],
-					isLive: false,
-					pushId: undefined,
-				},
-			}));
+			setConfig((prev) => {
+				const newConfig = {
+					...prev,
+					[platform]: {
+						...prev[platform],
+						isLive: false,
+						pushId: undefined,
+						broadcastId: undefined,
+					},
+				};
+				saveConfig(newConfig);
+				return newConfig;
+			});
 
 			// Refetch push list
 			pushListQuery.refetch();
@@ -644,7 +724,7 @@ export default function ForwardStreamSettings() {
 				error instanceof Error ? error.message : "Failed to stop forward",
 			);
 		}
-	}, [config, pushListQuery]);
+	}, [config, saveConfig, pushListQuery]);
 
 	// Stop forwarding all live platforms at once
 	const handleStopAllForward = useCallback(async () => {
@@ -664,32 +744,13 @@ export default function ForwardStreamSettings() {
 		[config],
 	);
 
-	// Save manual stream credentials for a platform
-	const handleManualSave = useCallback(
-		(platform: keyof ForwardStreamConfig) => {
-			const fields = manualFields[platform];
-			if (!fields?.streamKey) return;
-
-			const newConfig = {
-				...config,
-				[platform]: {
-					...config[platform],
-					serverUrl: fields.serverUrl || defaultConfig[platform].serverUrl,
-					streamKey: fields.streamKey,
-				},
-			};
-			setConfig(newConfig);
-			saveConfig(newConfig);
-			setManualSetup((prev) => ({ ...prev, [platform]: false }));
-			setManualFields((prev) => ({ ...prev, [platform]: undefined }));
-		},
-		[config, manualFields, saveConfig],
-	);
-
 	const renderPlatformSettings = (platform: keyof ForwardStreamConfig) => {
 		const platformConfig = config[platform];
 		const isConnecting = connectingPlatforms.has(platform);
-		const isConnected = !!platformConfig.streamKey;
+		const isCreatingBroadcast = broadcastCreating.has(platform);
+		const isConnected = !!platformConfig.accessToken || !!platformConfig.streamKey;
+		const hasStreamCredentials = !!platformConfig.streamKey;
+		const isDeferredCredentialPlatform = platform === "facebook" || platform === "tiktok";
 
 		return (
 			<Accordion key={platform}>
@@ -730,115 +791,74 @@ export default function ForwardStreamSettings() {
 					<Stack spacing={2}>
 						{isConnected ? (
 							<>
-								<TextField
-									fullWidth
-									label="Server URL"
-									value={platformConfig.serverUrl}
-									size="small"
-									slotProps={{
-										input: {
-											readOnly: true,
-											endAdornment: (
-												<InputAdornment position="end">
-													<Tooltip title="Copy Server URL">
-														<IconButton
-															size="small"
-															onClick={() =>
-																handleCopyToClipboard(
-																	platformConfig.serverUrl,
-																)
-															}
-														>
-															<ContentCopyIcon fontSize="small" />
-														</IconButton>
-													</Tooltip>
-												</InputAdornment>
-											),
-										},
-									}}
-								/>
-								<TextField
-									fullWidth
-									label="Stream Key"
-									type="password"
-									value={platformConfig.streamKey}
-									size="small"
-									slotProps={{
-										input: {
-											readOnly: true,
-											endAdornment: (
-												<InputAdornment position="end">
-													<Tooltip title="Copy Stream Key">
-														<IconButton
-															size="small"
-															onClick={() =>
-																handleCopyToClipboard(
-																	platformConfig.streamKey,
-																)
-															}
-														>
-															<ContentCopyIcon fontSize="small" />
-														</IconButton>
-													</Tooltip>
-												</InputAdornment>
-											),
-										},
-									}}
-								/>
-							</>
-						) : (
-							<>
-								<Alert severity="info" variant="outlined">
-									Connect your {getPlatformName(platform)} account to auto-fill
-									stream credentials, or use manual setup below.
-								</Alert>
-								{manualSetup[platform] && (
+								{hasStreamCredentials ? (
 									<>
 										<TextField
 											fullWidth
 											label="Server URL"
+											value={platformConfig.serverUrl}
 											size="small"
-											value={manualFields[platform]?.serverUrl ?? defaultConfig[platform].serverUrl}
-											onChange={(e) =>
-												setManualFields((prev) => ({
-													...prev,
-													[platform]: {
-														serverUrl: e.target.value,
-														streamKey: prev[platform]?.streamKey ?? "",
-													},
-												}))
-											}
-											placeholder={defaultConfig[platform].serverUrl}
+											slotProps={{
+												input: {
+													readOnly: true,
+													endAdornment: (
+														<InputAdornment position="end">
+															<Tooltip title="Copy Server URL">
+																<IconButton
+																	size="small"
+																	onClick={() =>
+																		handleCopyToClipboard(
+																			platformConfig.serverUrl,
+																		)
+																	}
+																>
+																	<ContentCopyIcon fontSize="small" />
+																</IconButton>
+															</Tooltip>
+														</InputAdornment>
+													),
+												},
+											}}
 										/>
 										<TextField
 											fullWidth
 											label="Stream Key"
 											type="password"
+											value={platformConfig.streamKey}
 											size="small"
-											value={manualFields[platform]?.streamKey ?? ""}
-											onChange={(e) =>
-												setManualFields((prev) => ({
-													...prev,
-													[platform]: {
-														serverUrl: prev[platform]?.serverUrl ?? defaultConfig[platform].serverUrl,
-														streamKey: e.target.value,
-													},
-												}))
-											}
-											placeholder="Enter your stream key"
+											slotProps={{
+												input: {
+													readOnly: true,
+													endAdornment: (
+														<InputAdornment position="end">
+															<Tooltip title="Copy Stream Key">
+																<IconButton
+																	size="small"
+																	onClick={() =>
+																		handleCopyToClipboard(
+																			platformConfig.streamKey,
+																		)
+																	}
+																>
+																	<ContentCopyIcon fontSize="small" />
+																</IconButton>
+															</Tooltip>
+														</InputAdornment>
+													),
+												},
+											}}
 										/>
-										<Button
-											variant="contained"
-											size="small"
-											startIcon={<SaveIcon />}
-											onClick={() => handleManualSave(platform)}
-											disabled={!manualFields[platform]?.streamKey}
-										>
-											Save
-										</Button>
 									</>
-								)}
+								) : isDeferredCredentialPlatform ? (
+									<Alert severity="success" variant="outlined">
+										Connected — credentials will be created when you start forwarding.
+									</Alert>
+								) : null}
 							</>
+						) : (
+							<Alert severity="info" variant="outlined">
+								Connect your {getPlatformName(platform)} account to get started.
+							</Alert>
 						)}
 
 						<Stack direction="row" spacing={1}>
@@ -864,8 +884,7 @@ export default function ForwardStreamSettings() {
 									</span>
 								</Tooltip>
 							) : (
-								<>
-									<Button
+								<Button
 									variant="outlined"
 									size="small"
 									startIcon={
@@ -882,20 +901,6 @@ export default function ForwardStreamSettings() {
 										? "Connecting..."
 										: `Connect ${getPlatformName(platform)}`}
 								</Button>
-								<Button
-									variant="outlined"
-									size="small"
-									startIcon={<EditIcon />}
-									onClick={() =>
-										setManualSetup((prev) => ({
-											...prev,
-											[platform]: !prev[platform],
-										}))
-									}
-								>
-									{manualSetup[platform] ? "Cancel" : "Manual Setup"}
-								</Button>
-								</>
 							)}
 						</Stack>
 
@@ -905,12 +910,18 @@ export default function ForwardStreamSettings() {
 									<Button
 										variant="contained"
 										color="success"
-										startIcon={<PlayArrowIcon />}
+										startIcon={
+											isCreatingBroadcast ? (
+												<CircularProgress size={16} color="inherit" />
+											) : (
+												<PlayArrowIcon />
+											)
+										}
 										onClick={() => handleStartForward(platform)}
-										disabled={!platformConfig.streamKey}
+										disabled={isCreatingBroadcast}
 										fullWidth
 									>
-										Start Forward
+										{isCreatingBroadcast ? "Creating Broadcast…" : "Start Forward"}
 									</Button>
 								) : (
 									<Button

@@ -24,6 +24,10 @@ Use MUI `sx` prop (not raw className) for styling alongside Tailwind.
 - ForwardStreamSettings uses encrypted Nostr kind 30078 events (NIP-04) to persist stream credentials. Decrypt failures must be surfaced to users, not swallowed.
 - `@emotion/react` was not in package.json despite MUI depending on it — needed explicit install for `keyframes` usage.
 - styled-jsx `<style jsx global>` is a Pages Router pattern; App Router components should use Emotion keyframes or MUI `sx` for animations.
-- Manual setup flow: toggle state per-platform (`manualSetup[platform]`), temp fields in `manualFields[platform]`, commit to config on Save.
+- Manual setup flow was removed in Phase 1 — OAuth is now mandatory. No more `manualSetup`/`manualFields` state.
 - When adding batch action buttons (Start All / Stop All), derive visibility from `useMemo` over config state to avoid stale UI.
 - `handleStopForward` needed `useCallback` wrapping to satisfy `react-hooks/exhaustive-deps` when referenced by `handleStopAllForward`.
+- PlatformConfig now includes `accessToken`, `refreshToken?`, `tokenExpiresAt?`, `broadcastId?` — all encrypted in the same NIP-04 kind:30078 event.
+- Facebook and TikTok are "deferred credential" platforms — they return `streamKey: ""` at OAuth time. Credentials are created at "Start Forward" via the broadcast API.
+- PresetSettings stores config as plain JSON in kind:30078 with d-tag `beamlivestudio-config`. Fields: `title`, `summary`, `image`, `tags`.
+- "Start Forward" now follows a two-step flow: (1) POST `/api/stream/{platform}/broadcast` to create broadcast + get credentials, (2) POST `/v1/push/start` to start RTMP push.
