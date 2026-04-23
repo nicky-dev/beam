@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { ChatPlatform } from "@/lib/chat/types";
 import { registerChat, unregisterChat, unregisterAll } from "@/lib/chat/store";
 
-const VALID_PLATFORMS: ChatPlatform[] = ["youtube", "twitch", "facebook"];
+const VALID_PLATFORMS: ChatPlatform[] = ["youtube", "twitch", "facebook", "tiktok"];
 
 interface RegisterRequest {
 	npub: string;
@@ -11,6 +11,7 @@ interface RegisterRequest {
 	chatId?: string;
 	broadcastId?: string;
 	channelName?: string;
+	ssnSessionId?: string;
 }
 
 interface UnregisterRequest {
@@ -26,9 +27,24 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "invalid_body", message: "Request body must be valid JSON" }, { status: 400 });
 	}
 
-	if (!body.npub || !body.platform || !body.accessToken) {
+	if (!body.npub || !body.platform) {
 		return NextResponse.json(
-			{ error: "missing_fields", message: "npub, platform, and accessToken are required" },
+			{ error: "missing_fields", message: "npub and platform are required" },
+			{ status: 400 },
+		);
+	}
+
+	// TikTok uses SSN session ID instead of access token
+	if (body.platform === "tiktok") {
+		if (!body.ssnSessionId) {
+			return NextResponse.json(
+				{ error: "missing_fields", message: "ssnSessionId is required for TikTok" },
+				{ status: 400 },
+			);
+		}
+	} else if (!body.accessToken) {
+		return NextResponse.json(
+			{ error: "missing_fields", message: "accessToken is required" },
 			{ status: 400 },
 		);
 	}
@@ -47,6 +63,7 @@ export async function POST(request: NextRequest) {
 		chatId: body.chatId,
 		broadcastId: body.broadcastId,
 		channelName: body.channelName,
+		ssnSessionId: body.ssnSessionId,
 	});
 
 	return NextResponse.json({ success: true });

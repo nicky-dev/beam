@@ -4,6 +4,7 @@ import { Box, Typography, Paper, Avatar, Chip } from "@mui/material";
 import YouTubeIcon from "@mui/icons-material/YouTube";
 import VideogameAssetIcon from "@mui/icons-material/VideogameAsset";
 import FacebookIcon from "@mui/icons-material/Facebook";
+import MusicNoteIcon from "@mui/icons-material/MusicNote";
 import ElectricBoltIcon from "@mui/icons-material/ElectricBolt";
 import type { UnifiedChatMessage } from "@/lib/chat/types";
 import TextNote from "./TextNote";
@@ -22,6 +23,8 @@ function getPlatformBadge(source: UnifiedChatMessage["source"]) {
 			return <Chip icon={<VideogameAssetIcon />} label="TTV" size="small" sx={{ bgcolor: "#9146FF", color: "#fff", height: 20, "& .MuiChip-label": { px: 0.5, fontSize: "0.65rem" }, "& .MuiChip-icon": { fontSize: "0.75rem", color: "#fff" } }} />;
 		case "facebook":
 			return <Chip icon={<FacebookIcon />} label="FB" size="small" sx={{ bgcolor: "#1877F2", color: "#fff", height: 20, "& .MuiChip-label": { px: 0.5, fontSize: "0.65rem" }, "& .MuiChip-icon": { fontSize: "0.75rem", color: "#fff" } }} />;
+		case "tiktok":
+			return <Chip icon={<MusicNoteIcon />} label="TT" size="small" sx={{ bgcolor: "#EE1D52", color: "#fff", height: 20, "& .MuiChip-label": { px: 0.5, fontSize: "0.65rem" }, "& .MuiChip-icon": { fontSize: "0.75rem", color: "#fff" } }} />;
 	}
 }
 

@@ -4,6 +4,7 @@ import type { ChatRegistration, UnifiedChatMessage } from "@/lib/chat/types";
 import { fetchYouTubeChat } from "@/lib/chat/adapters/youtube";
 import { fetchTwitchChat } from "@/lib/chat/adapters/twitch";
 import { fetchFacebookChat } from "@/lib/chat/adapters/facebook";
+import { connectToSSN, type SSNConnection } from "@/lib/chat/adapters/tiktok-ssn";
 
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID ?? "";
 
@@ -53,6 +54,10 @@ async function pollPlatform(
 			}
 			return result.messages;
 		}
+		case "tiktok": {
+			// TikTok uses SSN WebSocket — handled separately via connectToSSN, not polling
+			return [];
+		}
 	}
 }
 
@@ -81,12 +86,18 @@ export async function GET(request: NextRequest) {
 			const abortSignal = request.signal;
 			let closed = false;
 
+			// Track SSN connections for cleanup
+			const ssnConnections: SSNConnection[] = [];
+
 			function cleanup() {
 				closed = true;
 				for (const id of intervalIds) {
 					clearInterval(id);
 				}
 				clearInterval(heartbeatId);
+				for (const conn of ssnConnections) {
+					conn.disconnect();
+				}
 				try {
 					controller.close();
 				} catch {
@@ -100,6 +111,20 @@ export async function GET(request: NextRequest) {
 
 			// Set up polling for each registered platform
 			for (const reg of registrations) {
+				if (reg.platform === "tiktok" && reg.ssnSessionId) {
+					// TikTok: use SSN WebSocket instead of polling
+					const conn = connectToSSN(reg.ssnSessionId, (msg) => {
+						if (closed) return;
+						try {
+							controller.enqueue(encoder.encode(formatSSE(msg)));
+						} catch {
+							// Stream closed
+						}
+					});
+					ssnConnections.push(conn);
+					continue;
+				}
+
 				const state = pollStates.get(reg.platform) ?? {};
 				pollStates.set(reg.platform, state);
 

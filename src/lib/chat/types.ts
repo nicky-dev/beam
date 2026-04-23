@@ -1,6 +1,6 @@
 export interface UnifiedChatMessage {
 	id: string;
-	source: "nostr" | "youtube" | "twitch" | "facebook";
+	source: "nostr" | "youtube" | "twitch" | "facebook" | "tiktok";
 	author: {
 		id: string;
 		name: string;
@@ -27,6 +27,8 @@ export interface ChatRegistration {
 	broadcastId?: string;
 	/** Twitch channel login name */
 	channelName?: string;
+	/** Social Stream Ninja session ID (used for TikTok chat) */
+	ssnSessionId?: string;
 }
 
-export type ChatPlatform = "youtube" | "twitch" | "facebook";
+export type ChatPlatform = "youtube" | "twitch" | "facebook" | "tiktok";

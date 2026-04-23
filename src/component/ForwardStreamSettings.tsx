@@ -50,6 +50,8 @@ interface PlatformConfig {
 	broadcastId?: string;
 	isLive: boolean;
 	pushId?: string;
+	/** Social Stream Ninja session ID (TikTok chat) */
+	ssnSessionId?: string;
 }
 
 interface ForwardStreamConfig {
@@ -392,10 +394,21 @@ export default function ForwardStreamSettings() {
 				refreshToken: undefined,
 				tokenExpiresAt: undefined,
 				broadcastId: undefined,
+				ssnSessionId: undefined,
 			},
 		};
 		setConfig(newConfig);
 		saveConfig(newConfig);
+
+		// Deregister TikTok chat when disconnecting
+		if (platform === "tiktok" && activeUser) {
+			const userNpub = nip19.npubEncode(activeUser.pubkey);
+			fetch("/api/chat/register", {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ npub: userNpub, platform: "tiktok" }),
+			}).catch((err) => console.warn("TikTok chat deregister failed:", err));
+		}
 	};
 
 	const handleCopyToClipboard = async (text: string) => {
@@ -639,17 +652,22 @@ export default function ForwardStreamSettings() {
 				try {
 					const userNpub = activeUser ? nip19.npubEncode(activeUser.pubkey) : undefined;
 					if (userNpub) {
+						const chatBody: Record<string, unknown> = {
+							npub: userNpub,
+							platform,
+							accessToken: updatedPlatformConfig.accessToken,
+							chatId: (broadcastData as Record<string, unknown>).chatId,
+							broadcastId: broadcastData.broadcastId,
+							channelName: (broadcastData as Record<string, unknown>).channelName,
+						};
+						// For TikTok, include SSN session ID for chat
+						if (platform === "tiktok" && config.tiktok.ssnSessionId) {
+							chatBody.ssnSessionId = config.tiktok.ssnSessionId;
+						}
 						await fetch("/api/chat/register", {
 							method: "POST",
 							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({
-								npub: userNpub,
-								platform,
-								accessToken: updatedPlatformConfig.accessToken,
-								chatId: (broadcastData as Record<string, unknown>).chatId,
-								broadcastId: broadcastData.broadcastId,
-								channelName: (broadcastData as Record<string, unknown>).channelName,
-							}),
+							body: JSON.stringify(chatBody),
 						});
 					}
 				} catch (chatErr) {
@@ -909,6 +927,58 @@ export default function ForwardStreamSettings() {
 							<Alert severity="info" variant="outlined">
 								Connect your {getPlatformName(platform)} account to get started.
 							</Alert>
+						)}
+
+						{/* TikTok: Social Stream Ninja session ID for chat integration */}
+						{platform === "tiktok" && (
+							<Box>
+								<TextField
+									fullWidth
+									label="Social Stream Ninja Session ID"
+									placeholder="Enter your SSN session ID for TikTok chat"
+									value={platformConfig.ssnSessionId || ""}
+									size="small"
+									helperText="Install the Social Stream Ninja extension, open your TikTok live page, then paste the session ID here to receive TikTok chat."
+									onChange={(e) => {
+										const ssnSessionId = e.target.value;
+										setConfig((prev) => {
+											const newConfig = {
+												...prev,
+												tiktok: { ...prev.tiktok, ssnSessionId },
+											};
+											saveConfig(newConfig);
+											return newConfig;
+										});
+									}}
+								/>
+								{platformConfig.ssnSessionId && (
+									<Button
+										variant="outlined"
+										size="small"
+										sx={{ mt: 1 }}
+										onClick={async () => {
+											if (!activeUser) return;
+											const userNpub = nip19.npubEncode(activeUser.pubkey);
+											try {
+												await fetch("/api/chat/register", {
+													method: "POST",
+													headers: { "Content-Type": "application/json" },
+													body: JSON.stringify({
+														npub: userNpub,
+														platform: "tiktok",
+														ssnSessionId: platformConfig.ssnSessionId,
+													}),
+												});
+												setSnackbar({ open: true, message: "TikTok chat connected via SSN!", severity: "success" });
+											} catch {
+												setSnackbar({ open: true, message: "Failed to register TikTok chat", severity: "error" });
+											}
+										}}
+									>
+										Connect TikTok Chat
+									</Button>
+								)}
+							</Box>
 						)}
 
 						<Stack direction="row" spacing={1}>
