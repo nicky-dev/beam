@@ -346,4 +346,94 @@ Foundational architecture for multistream + multi-provider chat.
 
 ---
 
+## D8. Phase 3 Backend — Multi-Provider Chat Infrastructure
+
+**Date:** 2026-04-23  
+**Author:** Zoe (Backend / Nostr Dev)  
+**Status:** IMPLEMENTED
+
+### What Changed
+
+**New Files Created**
+| File | Purpose |
+|------|---------|
+| `src/lib/chat/types.ts` | `UnifiedChatMessage`, `ChatRegistration`, `ChatPlatform` types |
+| `src/lib/chat/store.ts` | In-memory session store: register/unregister/get by npub |
+| `src/lib/chat/adapters/youtube.ts` | YouTube Live Chat Messages API adapter |
+| `src/lib/chat/adapters/twitch.ts` | Twitch Helix chat messages adapter (graceful fallback) |
+| `src/lib/chat/adapters/facebook.ts` | Facebook Graph API live comments adapter |
+| `src/app/api/chat/register/route.ts` | POST/DELETE for chat session registration |
+| `src/app/api/chat/stream/route.ts` | GET SSE endpoint for real-time chat delivery |
+
+**Files Modified**
+| File | Change |
+|------|--------|
+| `src/app/api/stream/[platform]/broadcast/route.ts` | Added `chatId` to `BroadcastResponse`; YouTube extracts `liveChatId` from broadcast |
+
+### Architecture Decisions
+
+1. **In-memory store (not DB):** Chat registrations stored in module-level Map. Acceptable for MVP — serverless recycling may lose state, but local dev + single-instance deployments work fine.
+
+2. **SSE polling (not WebSocket):** Backend polls platform APIs, pushes to widget via SSE. Access tokens stay server-side — widgets authenticate by npub only.
+
+3. **TikTok chat skipped:** No public third-party chat API exists. May revisit if TikTok opens access.
+
+4. **Twitch graceful degradation:** Helix chat/messages endpoint may not be available for all accounts. Returns empty on failure. EventSub WebSocket is the proper solution for future enhancement.
+
+### Platform Adapters
+
+- **YouTube:** Uses Live Chat Messages API with `part=snippet,authorDetails`. Maps Super Chat/Sticker to `donation` field. Returns `pollingIntervalMillis` from API for caller to respect.
+- **Twitch:** Uses Helix `GET /helix/chat/messages` — may 404 on some accounts. Falls back gracefully.
+- **Facebook:** Uses Graph API `/{liveVideoId}/comments?live_filter=stream`. Tracks `since` timestamp for incremental fetching.
+
+### Coordination Notes for Kaylee
+
+- YouTube broadcast API now returns `chatId` — extract from broadcast response and pass to `POST /api/chat/register`
+- SSE endpoint: `GET /api/chat/stream?npub={npub}` — connect via `EventSource` in widget
+- Register chat before connecting SSE: `POST /api/chat/register` with `{ npub, platform, accessToken, chatId?, broadcastId?, channelName? }`
+- Unregister on stop: `DELETE /api/chat/register` with `{ npub }` to clean up all platforms
+
+---
+
+## D9. Phase 3 Frontend — Multi-Provider Chat Integration
+
+**Date:** 2026-04-23  
+**Author:** Kaylee (Frontend Dev)  
+**Status:** IMPLEMENTED
+
+### What Changed
+
+**New Files Created**
+- `src/hook/usePlatformChat.ts` — SSE hook connecting to `/api/chat/stream?npub=` with auto-reconnect, 200-message cap, dedup
+- `src/component/PlatformChatMessage.tsx` — Unified chat message renderer with platform badges and Social Stream Ninja data attributes
+- `src/component/NostrChatMessageAdapter.tsx` — Converts NDKEvent → UnifiedChatMessage using `useRealtimeProfile` per message
+
+**Files Modified**
+- `src/component/LiveChatWidget.tsx` — Now accepts optional `npub` prop, merges Nostr + platform messages in sorted timeline
+- `src/component/ChatMessagesList.tsx` — Added optional `unifiedMessages` prop for platform messages
+- `src/app/embed/live/[npub]/live-chat/page.tsx` — Encodes pubkey→npub, connects SSE, renders merged timeline
+- `src/component/ForwardStreamSettings.tsx` — Chat register on start (POST), deregister on stop (DELETE), deregister-all on stop-all
+
+### Key Design Decisions
+
+1. **Adapter pattern for Nostr messages:** `NostrChatMessageAdapter` wraps each NDKEvent individually so `useRealtimeProfile` (a React hook) can be called per-message without violating hook rules.
+2. **Merged timeline rendering:** Both LiveChatWidget and the embed page build a single sorted array of `{type, ts}` items rather than rendering two separate lists.
+3. **Non-blocking chat registration:** Chat register/deregister calls in ForwardStreamSettings are fire-and-forget with `console.warn` on failure — they never block or fail the main start/stop flow.
+4. **Types from Zoe's file:** Imports `UnifiedChatMessage` from `@/lib/chat/types` (Zoe's contract).
+
+### Platform Badge Colors
+
+- Nostr: purple (`#7c3aed`)
+- YouTube: red (`#FF0000`)
+- Twitch: purple (`#9146FF`)
+- Facebook: blue (`#1877F2`)
+
+### Dependencies on Zoe
+
+- `GET /api/chat/stream?npub=` SSE endpoint streaming `UnifiedChatMessage` JSON
+- `POST /api/chat/register` and `DELETE /api/chat/register` endpoints
+- `src/lib/chat/types.ts` — `UnifiedChatMessage` and `ChatRegistration` types (confirmed present)
+
+---
+
 **END OF DECISIONS COMPENDIUM**

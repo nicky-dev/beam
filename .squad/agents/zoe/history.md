@@ -47,3 +47,16 @@ Nostr event kinds: 1311 (chat), 30311 (stream metadata, replaceable), 30078 (pre
 - **Kaylee coordination:** Frontend successfully calling broadcast API in Start Forward flow, updating config with broadcastId + new credentials
 - **Phase 3 ready:** Chat credential registration endpoints can be planned for backend SSE polling approach
 - Decision formally recorded: `.squad/decisions/decisions.md` (D2. Phase 1+2 Backend Implementation)
+
+### Phase 3 — Multi-Provider Chat Backend (2026-04-23)
+- **Chat types:** `UnifiedChatMessage` normalizes Nostr/YouTube/Twitch/Facebook into a single shape. `ChatRegistration` holds per-platform credentials keyed by npub+platform.
+- **In-memory store:** Module-level `Map<npub, Map<platform, ChatRegistration>>` — simple, works in local dev. Serverless instance recycling will lose state; acceptable for MVP. No persistence layer needed yet.
+- **Adapters pattern:** Each adapter (`youtube.ts`, `twitch.ts`, `facebook.ts`) exports a single async fetch function returning `UnifiedChatMessage[]` + pagination state. All handle auth errors gracefully (return empty, log warning, never throw).
+- **YouTube adapter:** Uses Live Chat Messages API with `part=snippet,authorDetails`. Maps Super Chat/Sticker to `donation` field. Returns `pollingIntervalMillis` from API for caller to respect.
+- **Twitch adapter:** Uses Helix `GET /helix/chat/messages` — may 404 on some accounts. Falls back gracefully. Full Twitch chat will need EventSub WebSocket (future enhancement).
+- **Facebook adapter:** Uses Graph API `/{liveVideoId}/comments?live_filter=stream`. Tracks `since` timestamp for incremental fetching.
+- **SSE stream endpoint:** `GET /api/chat/stream?npub={npub}` — creates ReadableStream, polls each registered platform on intervals, heartbeats every 15s. Cleanup on abort signal. Never crashes on single platform error.
+- **Registration API:** `POST/DELETE /api/chat/register` — manages in-memory store. POST takes full `ChatRegistration`, DELETE takes npub + optional platform.
+- **Broadcast API updated:** YouTube `createYouTubeBroadcast` now extracts `broadcast.snippet.liveChatId` and returns it as `chatId` in `BroadcastResponse`.
+- **TikTok chat skipped:** No public API for third-party chat access — confirmed in architecture decision D1.
+- **Commit c7ecbcb:** Phase 3 backend infrastructure complete. All files staged and committed to main. Ready for Kaylee's frontend integration.

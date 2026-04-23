@@ -42,3 +42,14 @@ Use MUI `sx` prop (not raw className) for styling alongside Tailwind.
 - **Zoe coordination:** Backend broadcast API working as specified — tested with all 4 platforms
 - **ForwardStreamSettings now 1054 lines:** Component remains single file, but with significantly expanded platform credential handling
 - Decision formally recorded: `.squad/decisions/decisions.md` (D3. Phase 1+2 Frontend Implementation)
+
+### 2026-04-23 — Phase 3 Multi-Provider Chat Frontend
+- **usePlatformChat hook:** SSE EventSource to `/api/chat/stream?npub=` with auto-reconnect (5s), max 200 messages, dedup by id
+- **PlatformChatMessage component:** Unified renderer with colored platform badges (Nostr=purple, YouTube=red, Twitch=purple, Facebook=blue) and Social Stream Ninja `data-chat*` attributes
+- **NostrChatMessageAdapter:** Bridge component — takes NDKEvent, uses `useRealtimeProfile` for name/avatar, converts to UnifiedChatMessage, renders PlatformChatMessage. Cleanly handles zap invoices.
+- **LiveChatWidget merged timeline:** Nostr events + platform SSE messages sorted by timestamp in a single interleaved view. No longer uses ChatMessageList — renders directly.
+- **Embed live-chat page:** Extracts pubkey from WidgetContext, encodes to npub, feeds to usePlatformChat for SSE
+- **ForwardStreamSettings chat registration:** `POST /api/chat/register` after successful push start (Step 5), `DELETE /api/chat/register` after stop. Both non-blocking (console.warn on failure). handleStopAllForward sends blanket deregister.
+- **Profile handling pattern:** Per-message profile lookup via `useRealtimeProfile` inside NostrChatMessageAdapter avoids hook-rules issues with variable-length arrays. Each message component owns its own profile state.
+- **ForwardStreamSettings now ~1110 lines** with chat registration logic added
+- **Commit 3b28cfe:** Phase 3 frontend integration complete. All files staged and committed to main. Multi-provider chat fully operational.
