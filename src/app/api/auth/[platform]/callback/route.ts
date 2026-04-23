@@ -70,6 +70,16 @@ async function exchangeCodeForToken(
 	}
 
 	const data = await response.json();
+
+	// TikTok returns nested response: { data: { access_token, refresh_token, ... }, error: { ... } }
+	// Other platforms return flat: { access_token, refresh_token, ... }
+	if (platform === "tiktok" && data.data) {
+		return {
+			accessToken: data.data.access_token as string,
+			refreshToken: data.data.refresh_token as string | undefined,
+		};
+	}
+
 	return {
 		accessToken: data.access_token as string,
 		refreshToken: data.refresh_token as string | undefined,
@@ -195,9 +205,13 @@ async function getFacebookStreamCredentials(accessToken: string): Promise<Stream
 // Per decision D3: defer room creation to "Start Forward" time.
 // At OAuth time, only validate the token and return placeholder credentials.
 async function getTikTokStreamCredentials(accessToken: string): Promise<StreamCredentials> {
-	const response = await fetch("https://open.tiktokapis.com/v2/user/info/", {
-		headers: { Authorization: `Bearer ${accessToken}` },
-	});
+	// TikTok user info API requires 'fields' query parameter
+	const response = await fetch(
+		"https://open.tiktokapis.com/v2/user/info/?fields=display_name,avatar_url",
+		{
+			headers: { Authorization: `Bearer ${accessToken}` },
+		},
+	);
 
 	if (!response.ok) {
 		throw new Error(
@@ -323,6 +337,7 @@ export async function GET(
 	} catch (err) {
 		const message =
 			err instanceof Error ? err.message : "Failed to retrieve stream key";
+		console.error(`[OAuth Callback Error] Platform: ${platform}, Error:`, err);
 		return new NextResponse(
 			buildResponseHtml(platform, null, message),
 			{ headers: htmlHeaders },
