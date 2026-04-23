@@ -22,4 +22,10 @@ Nostr event kinds: 1311 (chat), 30311 (stream metadata, replaceable), 30078 (pre
 
 ## Learnings
 
-_Append learnings here as work progresses._
+### Forward Stream Backend Hardening (2025-07)
+- **Shared RTMP constants:** Created `src/lib/streaming/constants.ts` with `PLATFORM_RTMP_URLS` — single source of truth for default RTMP server URLs. Kaylee will import this into `ForwardStreamSettings.tsx`.
+- **Facebook scope:** `user_videos` is read-only. `publish_video` is required for creating live streams via Graph API `/me/live_videos`.
+- **Facebook API version:** Extracted to `FACEBOOK_API_VERSION` constant, configurable via `process.env.FACEBOOK_API_VERSION`. Currently `v20.0`.
+- **YouTube API shape:** `stream.cdn.ingestionInfo` can be null if the stream isn't fully configured in YouTube Studio. Always null-check before accessing `streamName`/`ingestionAddress`.
+- **Error message pattern:** All platform credential fetcher errors should be actionable — tell the user what to check or do, not just "failed to fetch".
+- **Coordination pattern:** When Kaylee edits UI files, I create shared constants and update backend only. She imports from my constants file in follow-up.

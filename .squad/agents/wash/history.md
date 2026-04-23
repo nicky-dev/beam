@@ -18,4 +18,13 @@ Key architectural facts:
 
 ## Learnings
 
-_Append learnings here as work progresses._
+### 2025-07-18 — Full Codebase Audit
+- Conducted comprehensive audit of all `src/` files. Found 30 issues (7 HIGH, 14 MEDIUM, 9 LOW).
+- **Security:** XSS vector in OAuth callback route — `postMessage` JSON injected directly into `<script>` tag without proper escaping (`src/app/api/auth/[platform]/callback/route.ts:250`).
+- **Architecture debt:** `src/lib/nostr/` is completely empty. Magic kind numbers (1311, 30311, 30078, 9735) are scattered as literals across 6+ files. Relay lists duplicated in two layouts.
+- **Hardcoded RTMP URL:** `rtmp://beam.mapboss.co.th/live` in `StreamUrlBox.tsx` — not configurable per deployment.
+- **Error handling gaps:** Multiple async operations (event.publish, getToken, nip19.decode) lack try/catch. PresetSettings has unsafe JSON.parse in useMemo.
+- **No tests:** Still zero test coverage. Jayne should set up test framework as foundation.
+- **Custom hooks are bare:** `useEventId` and `useEvents` return only data — no loading/error state for consumers.
+- **Accessibility:** Widespread missing aria-labels on fallback Avatars, chat container needs `role="log"`, login field lacks visible label.
+- Full report: `.squad/decisions/inbox/wash-feature-gaps.md`

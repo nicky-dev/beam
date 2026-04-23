@@ -36,6 +36,7 @@ import { useActiveUser, useNdk } from "nostr-hooks";
 import { useQuery } from "@tanstack/react-query";
 import { default as NDK, NDKEvent, NDKKind, NDKUser } from "@nostr-dev-kit/ndk";
 import { keyframes } from "@emotion/react";
+import { PLATFORM_RTMP_URLS } from "@/lib/streaming/constants";
 
 // Backend API URL - can be configured via environment variable
 const PUSH_API_URL =
@@ -65,22 +66,22 @@ interface PushInfo {
 const defaultConfig: ForwardStreamConfig = {
 	youtube: {
 		streamKey: "",
-		serverUrl: "rtmp://a.rtmp.youtube.com/live2/",
+		serverUrl: PLATFORM_RTMP_URLS.youtube,
 		isLive: false,
 	},
 	facebook: {
 		streamKey: "",
-		serverUrl: "rtmps://live-api-s.facebook.com:443/rtmp/",
+		serverUrl: PLATFORM_RTMP_URLS.facebook,
 		isLive: false,
 	},
 	twitch: {
 		streamKey: "",
-		serverUrl: "rtmp://live.twitch.tv/app/",
+		serverUrl: PLATFORM_RTMP_URLS.twitch,
 		isLive: false,
 	},
 	tiktok: {
 		streamKey: "",
-		serverUrl: "rtmp://push.tiktok.com/live/",
+		serverUrl: PLATFORM_RTMP_URLS.tiktok,
 		isLive: false,
 	},
 };

@@ -21,4 +21,9 @@ Use MUI `sx` prop (not raw className) for styling alongside Tailwind.
 
 ## Learnings
 
-_Append learnings here as work progresses._
+- ForwardStreamSettings uses encrypted Nostr kind 30078 events (NIP-04) to persist stream credentials. Decrypt failures must be surfaced to users, not swallowed.
+- `@emotion/react` was not in package.json despite MUI depending on it — needed explicit install for `keyframes` usage.
+- styled-jsx `<style jsx global>` is a Pages Router pattern; App Router components should use Emotion keyframes or MUI `sx` for animations.
+- Manual setup flow: toggle state per-platform (`manualSetup[platform]`), temp fields in `manualFields[platform]`, commit to config on Save.
+- When adding batch action buttons (Start All / Stop All), derive visibility from `useMemo` over config state to avoid stale UI.
+- `handleStopForward` needed `useCallback` wrapping to satisfy `react-hooks/exhaustive-deps` when referenced by `handleStopAllForward`.
