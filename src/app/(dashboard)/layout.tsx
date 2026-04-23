@@ -11,14 +11,7 @@ import {
 import NDKCacheAdapterDexie from "@nostr-dev-kit/ndk-cache-dexie";
 import AppNavigation from "@/component/AppNavigation";
 import LoginScreen from "@/component/LoginScreen";
-
-const relays = [
-	"wss://relay.damus.io",
-	"wss://relay.nostr.band",
-	"wss://nos.lol",
-	"wss://nostr.land",
-	"wss://purplerelay.com",
-];
+import { DEFAULT_RELAYS } from "@/lib/nostr";
 
 export default function DashboardLayout({
 	children,
@@ -34,7 +27,7 @@ export default function DashboardLayout({
 		initNdk({
 			cacheAdapter: new NDKCacheAdapterDexie(),
 			autoConnectUserRelays: true,
-			explicitRelayUrls: relays,
+			explicitRelayUrls: [...DEFAULT_RELAYS],
 		});
 	}, [initNdk]);
 

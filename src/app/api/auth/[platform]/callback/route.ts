@@ -237,20 +237,27 @@ function buildResponseHtml(
 	credentials: StreamCredentials | null,
 	error: string | null,
 ): string {
-	const message =
+	const messageObj =
 		credentials !== null
-			? JSON.stringify({
+			? {
 					type: "oauth-success",
 					platform,
 					streamKey: credentials.streamKey,
 					serverUrl: credentials.serverUrl,
-				})
-			: JSON.stringify({ type: "oauth-error", platform, error });
+				}
+			: { type: "oauth-error", platform, error };
+
+	// Double-stringify creates a safe JS string literal; escaping </ prevents
+	// breaking out of the <script> tag (XSS via credential values).
+	const safeMessageLiteral = JSON.stringify(JSON.stringify(messageObj)).replace(
+		/<\//g,
+		"<\\/",
+	);
 
 	return `<!DOCTYPE html>
 <html><body><script>
   if (window.opener) {
-    window.opener.postMessage(${message}, window.location.origin);
+    window.opener.postMessage(JSON.parse(${safeMessageLiteral}), window.location.origin);
   }
   window.close();
 </script><p>Connecting... This window will close automatically.</p>

@@ -45,7 +45,11 @@ export default function WidgetsPage() {
 			if (nip05.isNip05(val)) {
 				return nip05.queryProfile(val)?.then((d) => d?.pubkey);
 			}
-			return nip19.decode(val).data.toString();
+			try {
+				return nip19.decode(val).data.toString();
+			} catch {
+				throw new Error(`Invalid npub or NIP-19 identifier: ${val}`);
+			}
 		},
 	});
 

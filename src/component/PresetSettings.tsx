@@ -39,10 +39,13 @@ export default function PresetSettings() {
 		},
 	});
 
-	const data = useMemo(
-		() => JSON.parse(info.data?.content || "{}"),
-		[info.data?.content]
-	);
+	const data = useMemo(() => {
+		try {
+			return JSON.parse(info.data?.content || "{}");
+		} catch {
+			return {};
+		}
+	}, [info.data?.content]);
 
 	const handleSubmit = async (evt: FormEvent<HTMLDivElement>) => {
 		evt.preventDefault();
@@ -62,9 +65,14 @@ export default function PresetSettings() {
 			tags: [["d", "beamlivestudio-config"]],
 		});
 		setBusy(true);
-		await event.publish();
-		setBusy(false);
-		handleClose();
+		try {
+			await event.publish();
+			handleClose();
+		} catch (e) {
+			console.error("Failed to save preset settings:", e);
+		} finally {
+			setBusy(false);
+		}
 	};
 
 	return (

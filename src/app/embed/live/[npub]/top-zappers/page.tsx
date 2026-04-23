@@ -58,7 +58,7 @@ export default function TopZapperWidget() {
 				totalSats: stats.totalSats,
 			}))
 			.sort((a, b) => b.totalSats - a.totalSats) // Sort descending by totalSats
-			.slice(0, 5); // Get top 10
+			.slice(0, 5);
 	}, [zappers]);
 
 	return (

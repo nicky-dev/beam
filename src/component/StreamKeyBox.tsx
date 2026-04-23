@@ -16,14 +16,20 @@ export default function StreamKeyBox(props: TextFieldProps) {
 
 	useEffect(() => {
 		const generate = async () => {
-			const token = await getToken({
-				url: "/v1/admission",
-				method: "POST",
-			});
-			const streamKey = token?.split(" ").pop();
-			if (!streamKey) return;
-			setValue(streamKey);
-			setBusy(false);
+			try {
+				const token = await getToken({
+					url: "/v1/admission",
+					method: "POST",
+				});
+				const streamKey = token?.split(" ").pop();
+				if (!streamKey) return;
+				setValue(streamKey);
+			} catch (err) {
+				console.error("Failed to generate stream key:", err);
+				setValue("Error generating key");
+			} finally {
+				setBusy(false);
+			}
 		};
 		generate();
 	}, [getToken]);

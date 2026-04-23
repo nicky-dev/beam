@@ -6,14 +6,7 @@ import NDK, { NDKKind } from "@nostr-dev-kit/ndk";
 import NDKCacheAdapterDexie from "@nostr-dev-kit/ndk-cache-dexie";
 import { nip19, nip05 } from "nostr-tools";
 import { WidgetContext } from "@/hook/widget";
-
-const relays = [
-	"wss://relay.damus.io",
-	"wss://relay.nostr.band",
-	"wss://nos.lol",
-	"wss://nostr.land",
-	"wss://purplerelay.com",
-];
+import { DEFAULT_RELAYS } from "@/lib/nostr";
 
 export default function WidgetLayout({
 	children,
@@ -29,7 +22,7 @@ export default function WidgetLayout({
 		if (ndk) return;
 		initNdk({
 			cacheAdapter: new NDKCacheAdapterDexie(),
-			explicitRelayUrls: relays,
+			explicitRelayUrls: [...DEFAULT_RELAYS],
 		});
 	}, [ndk, initNdk]);
 
@@ -45,7 +38,11 @@ export default function WidgetLayout({
 			if (nip05.isNip05(val)) {
 				return nip05.queryProfile(val)?.then((d) => d?.pubkey);
 			}
-			return nip19.decode(val).data.toString();
+			try {
+				return nip19.decode(val).data.toString();
+			} catch {
+				throw new Error(`Invalid npub or NIP-19 identifier: ${val}`);
+			}
 		},
 	});
 

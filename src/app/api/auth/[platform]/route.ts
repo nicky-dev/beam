@@ -36,15 +36,20 @@ const OAUTH_CONFIGS: Record<Platform, OAuthConfig> = {
 const PLATFORMS = Object.keys(OAUTH_CONFIGS) as Platform[]
 
 function notConfiguredHtml(platform: string): NextResponse {
-	const message = JSON.stringify({
+	const messageObj = {
 		type: 'oauth-error',
 		platform,
 		error: `${platform} OAuth is not configured. Please set the required environment variables.`,
-	})
+	}
+	// Double-stringify + escape </ to prevent XSS via script breakout
+	const safeMessageLiteral = JSON.stringify(JSON.stringify(messageObj)).replace(
+		/<\//g,
+		'<\\/',
+	)
 	return new NextResponse(
 		`<!DOCTYPE html><html><body><script>
   if (window.opener) {
-    window.opener.postMessage(${message}, window.location.origin);
+    window.opener.postMessage(JSON.parse(${safeMessageLiteral}), window.location.origin);
   }
   window.close();
 </script><p>Not configured. This window will close automatically.</p>
