@@ -147,6 +147,8 @@ export default function EditStreamingInfo() {
 								label="Title"
 								defaultValue={info.data?.tagValue("title")}
 								disabled={busy}
+								required
+								slotProps={{ htmlInput: { maxLength: 100 } }}
 							/>
 							<TextField
 								name="summary"
@@ -155,12 +157,16 @@ export default function EditStreamingInfo() {
 								multiline
 								rows={3}
 								disabled={busy}
+								slotProps={{ htmlInput: { maxLength: 500 } }}
 							/>
 							<TextField
 								name="image"
 								label="Cover Image"
 								defaultValue={info.data?.tagValue("image")}
 								disabled={busy}
+								slotProps={{ htmlInput: { maxLength: 500 } }}
+								placeholder="https://..."
+								type="url"
 							/>
 							<TagsBox name="tags" initialValues={initialTags} disabled={busy} />
 						</Box>
