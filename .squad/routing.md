@@ -5,19 +5,39 @@ How to decide who handles what.
 ## Routing Table
 
 | Work Type | Route To | Examples |
-|-----------|----------|----------|
-| {domain 1} | {Name} | {example tasks} |
-| {domain 2} | {Name} | {example tasks} |
-| {domain 3} | {Name} | {example tasks} |
-| Code review | {Name} | Review PRs, check quality, suggest improvements |
-| Testing | {Name} | Write tests, find edge cases, verify fixes |
-| Scope & priorities | {Name} | What to build next, trade-offs, decisions |
+|-----------|----------|---------|
+| Architecture & scope decisions | Wash | Which NIPs to implement, API design, tech trade-offs |
+| UI components & pages | Kaylee | React components, MUI, embed widgets, dashboard pages |
+| Backend & Nostr protocol | Zoe | NDK, OAuth, RTMP API, Nostr events, hooks |
+| Tests & quality | Jayne | Test setup, unit tests, integration tests, edge cases |
+| Code review | Wash | Review PRs, approve/reject agent work |
+| Scope & priorities | Wash | What to build next, trade-offs, decisions |
 | Session logging | Scribe | Automatic — never needs routing |
+| Backlog monitoring | Ralph | Issue triage, PR status, CI monitoring |
+
+## Domain Map
+
+| File / Directory | Owner |
+|-----------------|-------|
+| `src/component/*.tsx` | Kaylee (build), Wash (review) |
+| `src/app/(dashboard)/` | Kaylee (UI), Zoe (data hooks) |
+| `src/app/embed/` | Kaylee |
+| `src/app/api/auth/` | Zoe |
+| `src/hook/` | Zoe |
+| `src/lib/nostr/` | Zoe |
+| `src/lib/mui/` | Kaylee |
+| `**/*.test.*`, `**/*.spec.*` | Jayne |
+| `.squad/` | Scribe (logs), Wash (decisions) |
 
 ## Issue Routing
 
 | Label | Action | Who |
 |-------|--------|-----|
+| `squad:wash` | Architecture or review task | Wash |
+| `squad:kaylee` | Frontend / UI work | Kaylee |
+| `squad:zoe` | Backend / Nostr / API work | Zoe |
+| `squad:jayne` | Testing / QA work | Jayne |
+| `squad` (no sub-label) | Needs triage | Wash triages first |
 | `squad` | Triage: analyze issue, assign `squad:{member}` label | Lead |
 | `squad:{name}` | Pick up issue and complete the work | Named member |
 

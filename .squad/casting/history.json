@@ -1,0 +1,12 @@
+{
+  "assignments": [
+    {
+      "assignment_id": "beam-2026-04-23",
+      "project": "beam",
+      "universe": "Firefly",
+      "created_at": "2026-04-23T15:35:32Z",
+      "agents": ["Wash", "Kaylee", "Zoe", "Jayne"],
+      "exempt": ["Scribe", "Ralph"]
+    }
+  ]
+}
