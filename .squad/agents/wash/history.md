@@ -39,4 +39,12 @@ Key architectural facts:
 - **TikTok chat:** No public API for third-party chat access. Deferred to future investigation.
 - **OAuth scope changes needed:** YouTube needs full `youtube` scope (not readonly), Twitch needs `chat:read user:read:chat`.
 - **Decision: 4-phase rollout** — Phase 1 (OAuth+tokens), Phase 2 (broadcast creation), Phase 3 (multi-provider chat), Phase 4 (polish).
-- Full architecture decision: `.squad/decisions/inbox/wash-forward-stream-architecture.md`
+- Full architecture decision: `.squad/decisions/decisions.md` (D1. Architecture Decision)
+
+### 2026-04-23 — Phase 1+2 Implementation Complete
+- Zoe completed Phase 1 (token persistence) + Phase 2 (broadcast API) backend changes
+- Kaylee completed Phase 1+2 frontend changes (removed manual setup, integrated broadcast creation flow)
+- 4-phase architecture on track: Phase 3 (multi-provider chat) ready for planning
+- Decision formally committed to `.squad/decisions/decisions.md`
+- Orchestration logs created for Wash/Zoe/Kaylee
+- Session log documenting Phase 1+2 completion

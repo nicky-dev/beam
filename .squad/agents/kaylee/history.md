@@ -31,3 +31,14 @@ Use MUI `sx` prop (not raw className) for styling alongside Tailwind.
 - Facebook and TikTok are "deferred credential" platforms — they return `streamKey: ""` at OAuth time. Credentials are created at "Start Forward" via the broadcast API.
 - PresetSettings stores config as plain JSON in kind:30078 with d-tag `beamlivestudio-config`. Fields: `title`, `summary`, `image`, `tags`.
 - "Start Forward" now follows a two-step flow: (1) POST `/api/stream/{platform}/broadcast` to create broadcast + get credentials, (2) POST `/v1/push/start` to start RTMP push.
+
+### 2026-04-23 — Phase 1+2 Frontend Completion & Integration
+- **OAuth token extraction complete:** `handleOAuthSuccess` properly extracts and stores `accessToken` + `refreshToken` from postMessage
+- **Broadcast creation flow integrated:** `handleStartForward` calls broadcast API before push API, updates config with broadcastId + new credentials
+- **Preset title/description fetched:** Query for kind:30078 (d-tag: `beamlivestudio-config`) working correctly
+- **Facebook/TikTok deferred state:** UI correctly shows "Connected — credentials will be created when you start forwarding" for deferred platforms
+- **Batch actions working:** `handleStartAllForward` checks `accessToken` for eligibility, `handleStopAllForward` clears broadcastId
+- **Error handling:** Broadcast API errors (token_expired, broadcast_failed) properly handled and surfaced to user
+- **Zoe coordination:** Backend broadcast API working as specified — tested with all 4 platforms
+- **ForwardStreamSettings now 1054 lines:** Component remains single file, but with significantly expanded platform credential handling
+- Decision formally recorded: `.squad/decisions/decisions.md` (D3. Phase 1+2 Frontend Implementation)

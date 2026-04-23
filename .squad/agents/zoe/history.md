@@ -38,3 +38,12 @@ Nostr event kinds: 1311 (chat), 30311 (stream metadata, replaceable), 30078 (pre
 - **Broadcast API:** Created `POST /api/stream/[platform]/broadcast` — accepts `{ accessToken, title, description?, image? }`, returns `{ broadcastId, streamKey?, serverUrl? }`. YouTube creates liveBroadcast + binds to existing stream. Twitch patches channel title. Facebook creates live_video. TikTok creates live room.
 - **Token expiry pattern:** Broadcast API returns `{ error: "token_expired", message: "..." }` with HTTP 401 so the frontend can prompt re-auth.
 - **postMessage payload expansion:** `buildResponseHtml` now includes `accessToken` and `refreshToken` in the OAuth success message to the opener window.
+
+### 2026-04-23 — Phase 1+2 Completion & Coordination
+- **Broadcast API complete:** `/api/stream/[platform]/broadcast` endpoint tested and working across YouTube, Twitch, Facebook, TikTok
+- **Token threading verified:** Access + refresh tokens flow through postMessage correctly
+- **Facebook/TikTok deferred:** Credentials properly deferred to broadcast time — tested with placeholder streamKey
+- **Error handling standardized:** Token expiry returns 401, broadcast failures return descriptive messages
+- **Kaylee coordination:** Frontend successfully calling broadcast API in Start Forward flow, updating config with broadcastId + new credentials
+- **Phase 3 ready:** Chat credential registration endpoints can be planned for backend SSE polling approach
+- Decision formally recorded: `.squad/decisions/decisions.md` (D2. Phase 1+2 Backend Implementation)
