@@ -5,14 +5,18 @@ applyTo: "src/hook/**,src/component/*Widget*,src/component/ChatMessage*,src/comp
 
 # Nostr Event Patterns
 
+> **Full protocol reference:** See `.squad/skills/nostr-protocol/SKILL.md` for comprehensive NIP documentation covering core protocol, identity, encryption, auth, and Beam-specific anti-patterns.
+
 ## Event Kinds
+
+Import constants from `@/lib/nostr` — never use magic numbers:
 
 | Kind | Constant | Purpose |
 |------|----------|---------|
-| 1311 | `1311 as NDKKind` | Live chat messages |
-| 30311 | `30311 as NDKKind` | Live stream metadata (replaceable) |
-| 30078 | `30078` | App config / presets (replaceable) |
-| 9735 | `NDKKind.Zap` | Zap receipts (Lightning tips) |
+| 1311 | `LIVE_CHAT_KIND` | Live chat messages (NIP-53) |
+| 30311 | `LIVE_STREAM_KIND` | Live stream metadata — addressable (NIP-53) |
+| 30078 | `APP_CONFIG_KIND` | App config / presets — addressable (NIP-78) |
+| 9735 | `NDKKind.Zap` | Zap receipts / Lightning tips (NIP-57) |
 
 ## Real-time Subscriptions (preferred)
 
@@ -65,7 +69,7 @@ const event = new NDKEvent(ndk, {
 await event.publish();
 ```
 
-For encrypted content (NIP-04): call `await event.encrypt(activeUser)` before `publish()`, and `await event.decrypt(activeUser)` after fetching.
+For encrypted content: use NIP-44 when available (`ndk.nip44Encrypt`), fall back to NIP-04 (`event.encrypt(activeUser)`) for legacy data. See `.squad/skills/nostr-protocol/SKILL.md` encryption section for migration details.
 
 ## Tag Conventions
 
@@ -83,7 +87,8 @@ Access tags via `event.tagValue("d")` (single) or `event.getMatchingTags("t")` (
 
 ```ts
 import { useSubscription } from "nostr-hooks";
-import { useActiveUser, useNdk, useLogin, useRealtimeProfile } from "nostr-hooks";
+import { useActiveUser, useNdk, useLogin, useRealtimeProfile, useNip98 } from "nostr-hooks";
 import { NDKEvent, NDKKind, NDKFilter } from "@nostr-dev-kit/ndk";
 import { nip19, nip05 } from "nostr-tools";
+import { LIVE_CHAT_KIND, LIVE_STREAM_KIND, APP_CONFIG_KIND, DEFAULT_RELAYS } from "@/lib/nostr";
 ```
