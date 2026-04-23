@@ -16,6 +16,7 @@ import {
 	Tooltip,
 	IconButton,
 	InputAdornment,
+	Snackbar,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import YouTubeIcon from "@mui/icons-material/YouTube";
@@ -24,13 +25,17 @@ import VideogameAssetIcon from "@mui/icons-material/VideogameAsset"; // For Twit
 import MusicNoteIcon from "@mui/icons-material/MusicNote"; // For TikTok
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
+import StopCircleIcon from "@mui/icons-material/StopCircle";
 import SettingsIcon from "@mui/icons-material/Settings";
 import LinkIcon from "@mui/icons-material/Link";
 import LinkOffIcon from "@mui/icons-material/LinkOff";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import EditIcon from "@mui/icons-material/Edit";
+import SaveIcon from "@mui/icons-material/Save";
 import { useActiveUser, useNdk } from "nostr-hooks";
 import { useQuery } from "@tanstack/react-query";
 import { default as NDK, NDKEvent, NDKKind, NDKUser } from "@nostr-dev-kit/ndk";
+import { keyframes } from "@emotion/react";
 
 // Backend API URL - can be configured via environment variable
 const PUSH_API_URL =
@@ -96,6 +101,11 @@ function getPlatformIcon(platform: keyof ForwardStreamConfig) {
 function getPlatformName(platform: keyof ForwardStreamConfig) {
 	return platform.charAt(0).toUpperCase() + platform.slice(1);
 }
+
+const pulse = keyframes`
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.5; }
+`;
 
 type QueryKey = [string, { ndk?: NDK; activeUser?: NDKUser | null }];
 type QueryResult = NDKEvent | null;
@@ -199,6 +209,20 @@ export default function ForwardStreamSettings() {
 	>(new Set());
 	const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+	// Snackbar feedback states
+	const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
+		open: false,
+		message: "",
+		severity: "success",
+	});
+	const [decryptError, setDecryptError] = useState(false);
+
+	// Manual setup state per platform
+	const [manualSetup, setManualSetup] = useState<Partial<Record<keyof ForwardStreamConfig, boolean>>>({});
+	const [manualFields, setManualFields] = useState<
+		Partial<Record<keyof ForwardStreamConfig, { serverUrl: string; streamKey: string }>>
+	>({});
+
 	// Update isLive status based on push list
 	useEffect(() => {
 		if (!pushListQuery.data) return;
@@ -267,6 +291,7 @@ export default function ForwardStreamSettings() {
 				setLoadedEventId(event.id);
 			} catch (e) {
 				console.error("Failed to decrypt/parse config:", e);
+				setDecryptError(true);
 				// Use default config if we can't load
 				setLoadedEventId(event.id);
 			}
@@ -291,8 +316,14 @@ export default function ForwardStreamSettings() {
 				// Encrypt the content using NIP-04
 				await event.encrypt(activeUser);
 				await event.publish();
+				setSnackbar({ open: true, message: "Settings saved", severity: "success" });
 			} catch (e) {
 				console.error("Failed to save config:", e);
+				setSnackbar({
+					open: true,
+					message: e instanceof Error ? `Save failed: ${e.message}` : "Failed to save settings",
+					severity: "error",
+				});
 			} finally {
 				setIsSaving(false);
 			}
@@ -337,8 +368,9 @@ export default function ForwardStreamSettings() {
 	const handleCopyToClipboard = async (text: string) => {
 		try {
 			await navigator.clipboard.writeText(text);
+			setSnackbar({ open: true, message: "Copied!", severity: "success" });
 		} catch {
-			// Silently fail if clipboard access is denied
+			setSnackbar({ open: true, message: "Failed to copy", severity: "error" });
 		}
 	};
 
@@ -567,7 +599,7 @@ export default function ForwardStreamSettings() {
 		);
 	}, [isStreaming, streamId, config, handleStartForward]);
 
-	const handleStopForward = async (platform: keyof ForwardStreamConfig) => {
+	const handleStopForward = useCallback(async (platform: keyof ForwardStreamConfig) => {
 		const platformConfig = config[platform];
 		if (!platformConfig.pushId) {
 			setForwardError("No active push found for this platform");
@@ -611,7 +643,47 @@ export default function ForwardStreamSettings() {
 				error instanceof Error ? error.message : "Failed to stop forward",
 			);
 		}
-	};
+	}, [config, pushListQuery]);
+
+	// Stop forwarding all live platforms at once
+	const handleStopAllForward = useCallback(async () => {
+		const livePlatforms = (["youtube", "facebook", "twitch", "tiktok"] as const).filter(
+			(p) => config[p].isLive && config[p].pushId,
+		);
+
+		if (livePlatforms.length === 0) return;
+
+		setForwardError(null);
+		await Promise.allSettled(livePlatforms.map((p) => handleStopForward(p)));
+	}, [config, handleStopForward]);
+
+	// Check if any platform is currently forwarding
+	const hasLivePlatforms = useMemo(
+		() => (["youtube", "facebook", "twitch", "tiktok"] as const).some((p) => config[p].isLive),
+		[config],
+	);
+
+	// Save manual stream credentials for a platform
+	const handleManualSave = useCallback(
+		(platform: keyof ForwardStreamConfig) => {
+			const fields = manualFields[platform];
+			if (!fields?.streamKey) return;
+
+			const newConfig = {
+				...config,
+				[platform]: {
+					...config[platform],
+					serverUrl: fields.serverUrl || defaultConfig[platform].serverUrl,
+					streamKey: fields.streamKey,
+				},
+			};
+			setConfig(newConfig);
+			saveConfig(newConfig);
+			setManualSetup((prev) => ({ ...prev, [platform]: false }));
+			setManualFields((prev) => ({ ...prev, [platform]: undefined }));
+		},
+		[config, manualFields, saveConfig],
+	);
 
 	const renderPlatformSettings = (platform: keyof ForwardStreamConfig) => {
 		const platformConfig = config[platform];
@@ -635,7 +707,7 @@ export default function ForwardStreamSettings() {
 								label="LIVE"
 								color="error"
 								size="small"
-								sx={{ animation: "pulse 2s infinite" }}
+								sx={{ animation: `${pulse} 2s infinite` }}
 							/>
 						) : isConnected ? (
 							<Chip
@@ -714,10 +786,58 @@ export default function ForwardStreamSettings() {
 								/>
 							</>
 						) : (
-							<Alert severity="info" variant="outlined">
-								Connect your {getPlatformName(platform)} account to auto-fill
-								stream credentials.
-							</Alert>
+							<>
+								<Alert severity="info" variant="outlined">
+									Connect your {getPlatformName(platform)} account to auto-fill
+									stream credentials, or use manual setup below.
+								</Alert>
+								{manualSetup[platform] && (
+									<>
+										<TextField
+											fullWidth
+											label="Server URL"
+											size="small"
+											value={manualFields[platform]?.serverUrl ?? defaultConfig[platform].serverUrl}
+											onChange={(e) =>
+												setManualFields((prev) => ({
+													...prev,
+													[platform]: {
+														serverUrl: e.target.value,
+														streamKey: prev[platform]?.streamKey ?? "",
+													},
+												}))
+											}
+											placeholder={defaultConfig[platform].serverUrl}
+										/>
+										<TextField
+											fullWidth
+											label="Stream Key"
+											type="password"
+											size="small"
+											value={manualFields[platform]?.streamKey ?? ""}
+											onChange={(e) =>
+												setManualFields((prev) => ({
+													...prev,
+													[platform]: {
+														serverUrl: prev[platform]?.serverUrl ?? defaultConfig[platform].serverUrl,
+														streamKey: e.target.value,
+													},
+												}))
+											}
+											placeholder="Enter your stream key"
+										/>
+										<Button
+											variant="contained"
+											size="small"
+											startIcon={<SaveIcon />}
+											onClick={() => handleManualSave(platform)}
+											disabled={!manualFields[platform]?.streamKey}
+										>
+											Save
+										</Button>
+									</>
+								)}
+							</>
 						)}
 
 						<Stack direction="row" spacing={1}>
@@ -743,7 +863,8 @@ export default function ForwardStreamSettings() {
 									</span>
 								</Tooltip>
 							) : (
-								<Button
+								<>
+									<Button
 									variant="outlined"
 									size="small"
 									startIcon={
@@ -760,6 +881,20 @@ export default function ForwardStreamSettings() {
 										? "Connecting..."
 										: `Connect ${getPlatformName(platform)}`}
 								</Button>
+								<Button
+									variant="outlined"
+									size="small"
+									startIcon={<EditIcon />}
+									onClick={() =>
+										setManualSetup((prev) => ({
+											...prev,
+											[platform]: !prev[platform],
+										}))
+									}
+								>
+									{manualSetup[platform] ? "Cancel" : "Manual Setup"}
+								</Button>
+								</>
 							)}
 						</Stack>
 
@@ -841,7 +976,7 @@ export default function ForwardStreamSettings() {
 								label="LIVE"
 								color="error"
 								size="small"
-								sx={{ animation: "pulse 2s infinite" }}
+								sx={{ animation: `${pulse} 2s infinite` }}
 							/>
 						) : (
 							<Chip label="OFFLINE" size="small" />
@@ -850,16 +985,28 @@ export default function ForwardStreamSettings() {
 					</Box>
 
 					{isStreaming && (
-						<Button
-							variant="contained"
-							color="success"
-							startIcon={<PlayArrowIcon />}
-							onClick={handleStartAllForward}
-							sx={{ mb: 2 }}
-							fullWidth
-						>
-							Start All Forward
-						</Button>
+						<Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+							<Button
+								variant="contained"
+								color="success"
+								startIcon={<PlayArrowIcon />}
+								onClick={handleStartAllForward}
+								fullWidth
+							>
+								Start All Forward
+							</Button>
+							{hasLivePlatforms && (
+								<Button
+									variant="contained"
+									color="error"
+									startIcon={<StopCircleIcon />}
+									onClick={handleStopAllForward}
+									fullWidth
+								>
+									Stop All Forward
+								</Button>
+							)}
+						</Stack>
 					)}
 
 					<Stack spacing={1}>
@@ -871,17 +1018,25 @@ export default function ForwardStreamSettings() {
 				</>
 			)}
 
-			<style jsx global>{`
-				@keyframes pulse {
-					0%,
-					100% {
-						opacity: 1;
-					}
-					50% {
-						opacity: 0.5;
-					}
-				}
-			`}</style>
+			{decryptError && (
+				<Alert severity="warning" sx={{ mt: 2 }} onClose={() => setDecryptError(false)}>
+					Could not load your saved stream config. Using defaults — your previous settings may need to be
+					re-entered.
+				</Alert>
+			)}
+
+			<Snackbar
+				open={snackbar.open}
+				autoHideDuration={3000}
+				onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+				message={snackbar.message}
+				ContentProps={{
+					sx: {
+						bgcolor: snackbar.severity === "error" ? "error.main" : "success.main",
+						color: "white",
+					},
+				}}
+			/>
 		</Paper>
 	);
 }
