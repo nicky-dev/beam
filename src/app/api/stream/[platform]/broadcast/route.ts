@@ -16,6 +16,7 @@ interface BroadcastResponse {
 	broadcastId: string;
 	streamKey?: string;
 	serverUrl?: string;
+	chatId?: string;
 }
 
 interface ErrorResponse {
@@ -60,6 +61,7 @@ async function createYouTubeBroadcast(req: BroadcastRequest): Promise<BroadcastR
 
 	const broadcast = await broadcastRes.json();
 	const broadcastId = broadcast.id as string;
+	const liveChatId = broadcast.snippet?.liveChatId as string | undefined;
 
 	// 2. List the user's liveStream to get ingestion info
 	const streamListRes = await fetch(
@@ -96,7 +98,7 @@ async function createYouTubeBroadcast(req: BroadcastRequest): Promise<BroadcastR
 		throw new Error(`Failed to bind YouTube broadcast to stream: ${text}`);
 	}
 
-	return { broadcastId, streamKey, serverUrl };
+	return { broadcastId, streamKey, serverUrl, chatId: liveChatId };
 }
 
 // --- Twitch ---
