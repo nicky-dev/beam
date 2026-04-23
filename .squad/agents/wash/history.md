@@ -28,3 +28,15 @@ Key architectural facts:
 - **Custom hooks are bare:** `useEventId` and `useEvents` return only data — no loading/error state for consumers.
 - **Accessibility:** Widespread missing aria-labels on fallback Avatars, chat container needs `role="log"`, login field lacks visible label.
 - Full report: `.squad/decisions/inbox/wash-feature-gaps.md`
+
+### 2025-07-18 — Forward Stream + Multi-Provider Chat Architecture
+- Analyzed full forward stream pipeline: OAuth callback → postMessage → ForwardStreamSettings → push API.
+- **Key finding:** OAuth callback discards access_token after fetching stream credentials. Token must be persisted for broadcast creation and chat retrieval.
+- **Platform lifecycle split:** YouTube/Twitch have persistent stream keys (stable across sessions). Facebook/TikTok generate per-session credentials via live_video/room creation — must defer creation to "Start Forward" time.
+- **PlatformConfig expansion:** Added `accessToken`, `refreshToken`, `tokenExpiresAt`, `broadcastId` fields to the NIP-04 encrypted config.
+- **Broadcast creation:** New API route `/api/stream/[platform]/broadcast` handles per-platform broadcast creation with preset title/description at forward time.
+- **Multi-provider chat design:** Backend SSE approach — dashboard registers chat credentials with backend on forward start, backend polls platform APIs, widgets consume via SSE merged with Nostr events. Access tokens never exposed to widget URLs.
+- **TikTok chat:** No public API for third-party chat access. Deferred to future investigation.
+- **OAuth scope changes needed:** YouTube needs full `youtube` scope (not readonly), Twitch needs `chat:read user:read:chat`.
+- **Decision: 4-phase rollout** — Phase 1 (OAuth+tokens), Phase 2 (broadcast creation), Phase 3 (multi-provider chat), Phase 4 (polish).
+- Full architecture decision: `.squad/decisions/inbox/wash-forward-stream-architecture.md`

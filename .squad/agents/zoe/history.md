@@ -29,3 +29,12 @@ Nostr event kinds: 1311 (chat), 30311 (stream metadata, replaceable), 30078 (pre
 - **YouTube API shape:** `stream.cdn.ingestionInfo` can be null if the stream isn't fully configured in YouTube Studio. Always null-check before accessing `streamName`/`ingestionAddress`.
 - **Error message pattern:** All platform credential fetcher errors should be actionable — tell the user what to check or do, not just "failed to fetch".
 - **Coordination pattern:** When Kaylee edits UI files, I create shared constants and update backend only. She imports from my constants file in follow-up.
+
+### OAuth Token Persistence + Broadcast API (2025-07)
+- **Token threading:** `exchangeCodeForToken()` now returns `{ accessToken, refreshToken? }` instead of a bare string. All `get*StreamCredentials()` functions accept and thread tokens into `StreamCredentials`.
+- **YouTube offline access:** Changed `access_type` from `online` to `offline` and added `prompt: consent` to get refresh tokens. Expanded scope from `youtube.readonly` to full `youtube` for broadcast creation + chat.
+- **Twitch chat scopes:** Added `chat:read user:read:chat` alongside `channel:read:stream_key`.
+- **Facebook/TikTok deferred creation (D3):** At OAuth time, these platforms now only validate the token (fetch `/me` or `/user/info/`). Stream keys are empty placeholders. Actual broadcast/room creation happens via the new `/api/stream/[platform]/broadcast` endpoint at "Start Forward" time.
+- **Broadcast API:** Created `POST /api/stream/[platform]/broadcast` — accepts `{ accessToken, title, description?, image? }`, returns `{ broadcastId, streamKey?, serverUrl? }`. YouTube creates liveBroadcast + binds to existing stream. Twitch patches channel title. Facebook creates live_video. TikTok creates live room.
+- **Token expiry pattern:** Broadcast API returns `{ error: "token_expired", message: "..." }` with HTTP 401 so the frontend can prompt re-auth.
+- **postMessage payload expansion:** `buildResponseHtml` now includes `accessToken` and `refreshToken` in the OAuth success message to the opener window.

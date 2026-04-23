@@ -8,6 +8,8 @@ const FACEBOOK_API_VERSION = process.env.FACEBOOK_API_VERSION ?? "v20.0";
 interface StreamCredentials {
 	streamKey: string;
 	serverUrl: string;
+	accessToken: string;
+	refreshToken?: string;
 }
 
 interface TokenConfig {
@@ -47,7 +49,7 @@ async function exchangeCodeForToken(
 	platform: Platform,
 	code: string,
 	redirectUri: string,
-): Promise<string> {
+): Promise<{ accessToken: string; refreshToken?: string }> {
 	const config = TOKEN_CONFIGS[platform];
 	const clientIdParam = config.clientIdParam ?? "client_id";
 	const response = await fetch(config.tokenUrl, {
@@ -68,11 +70,15 @@ async function exchangeCodeForToken(
 	}
 
 	const data = await response.json();
-	return data.access_token as string;
+	return {
+		accessToken: data.access_token as string,
+		refreshToken: data.refresh_token as string | undefined,
+	};
 }
 
 async function getYouTubeStreamCredentials(
 	accessToken: string,
+	refreshToken?: string,
 ): Promise<StreamCredentials> {
 	const response = await fetch(
 		"https://www.googleapis.com/youtube/v3/liveStreams?part=cdn&mine=true",
@@ -104,12 +110,12 @@ async function getYouTubeStreamCredentials(
 	return {
 		streamKey: ingestionInfo.streamName as string,
 		serverUrl: `${ingestionInfo.ingestionAddress as string}/`,
+		accessToken,
+		refreshToken,
 	};
 }
 
-async function getTwitchStreamCredentials(
-	accessToken: string,
-): Promise<StreamCredentials> {
+async function getTwitchStreamCredentials(accessToken: string): Promise<StreamCredentials> {
 	const clientId = process.env.TWITCH_CLIENT_ID ?? "";
 
 	const userResponse = await fetch("https://api.twitch.tv/helix/users", {
@@ -162,93 +168,58 @@ async function getTwitchStreamCredentials(
 	return {
 		streamKey,
 		serverUrl: PLATFORM_RTMP_URLS.twitch,
+		accessToken,
 	};
 }
 
-async function getFacebookStreamCredentials(
-	accessToken: string,
-): Promise<StreamCredentials> {
+// Per decision D3: defer broadcast creation to "Start Forward" time.
+// At OAuth time, only validate the token and return placeholder credentials.
+async function getFacebookStreamCredentials(accessToken: string): Promise<StreamCredentials> {
 	const response = await fetch(
-		`https://graph.facebook.com/${FACEBOOK_API_VERSION}/me/live_videos`,
-		{
-			method: "POST",
-			headers: { "Content-Type": "application/x-www-form-urlencoded" },
-			body: new URLSearchParams({
-				access_token: accessToken,
-				status: "SCHEDULED_UNPUBLISHED",
-				title: "Live Stream",
-			}),
-		},
+		`https://graph.facebook.com/${FACEBOOK_API_VERSION}/me?access_token=${accessToken}`,
 	);
 
 	if (!response.ok) {
 		throw new Error(
-			"Failed to create Facebook live video session. Check that your Facebook account has live streaming permissions.",
-		);
-	}
-
-	const data = await response.json();
-	// Prefer secure stream URL; fall back to plain stream URL
-	const streamUrl: string = data.secure_stream_url || data.stream_url;
-
-	if (!streamUrl) {
-		throw new Error(
-			"No stream URL returned from Facebook. Ensure your account is approved for Facebook Live.",
-		);
-	}
-
-	// Facebook URL format: rtmps://live-api-s.facebook.com:443/rtmp/{stream_key}
-	const lastSlash = streamUrl.lastIndexOf("/");
-	const streamKey = streamUrl.slice(lastSlash + 1);
-	const serverUrl = `${streamUrl.slice(0, lastSlash + 1)}`;
-
-	return { streamKey, serverUrl };
-}
-
-async function getTikTokStreamCredentials(
-	accessToken: string,
-): Promise<StreamCredentials> {
-	const response = await fetch(
-		"https://open.tiktokapis.com/v2/live/room/create/",
-		{
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json; charset=UTF-8",
-				Authorization: `Bearer ${accessToken}`,
-			},
-			body: JSON.stringify({ title: "Live Stream" }),
-		},
-	);
-
-	if (!response.ok) {
-		throw new Error(
-			"Failed to create TikTok live room. Ensure your TikTok account meets the live streaming requirements.",
-		);
-	}
-
-	const data = await response.json();
-	const serverUrl: string = data.data?.stream_url ?? "";
-	const streamKey: string = data.data?.stream_key ?? "";
-
-	if (!serverUrl || !streamKey) {
-		throw new Error(
-			"No stream credentials returned from TikTok. Please enter the stream key manually.",
+			"Failed to validate Facebook token. Check that your Facebook account has live streaming permissions.",
 		);
 	}
 
 	return {
-		streamKey,
-		serverUrl,
+		streamKey: "",
+		serverUrl: PLATFORM_RTMP_URLS.facebook,
+		accessToken,
+	};
+}
+
+// Per decision D3: defer room creation to "Start Forward" time.
+// At OAuth time, only validate the token and return placeholder credentials.
+async function getTikTokStreamCredentials(accessToken: string): Promise<StreamCredentials> {
+	const response = await fetch("https://open.tiktokapis.com/v2/user/info/", {
+		headers: { Authorization: `Bearer ${accessToken}` },
+	});
+
+	if (!response.ok) {
+		throw new Error(
+			"Failed to validate TikTok token. Ensure your TikTok account meets the live streaming requirements.",
+		);
+	}
+
+	return {
+		streamKey: "",
+		serverUrl: PLATFORM_RTMP_URLS.tiktok,
+		accessToken,
 	};
 }
 
 async function getStreamCredentials(
 	platform: Platform,
 	accessToken: string,
+	refreshToken?: string,
 ): Promise<StreamCredentials> {
 	switch (platform) {
 		case "youtube":
-			return getYouTubeStreamCredentials(accessToken);
+			return getYouTubeStreamCredentials(accessToken, refreshToken);
 		case "twitch":
 			return getTwitchStreamCredentials(accessToken);
 		case "facebook":
@@ -270,6 +241,8 @@ function buildResponseHtml(
 					platform,
 					streamKey: credentials.streamKey,
 					serverUrl: credentials.serverUrl,
+					accessToken: credentials.accessToken,
+					refreshToken: credentials.refreshToken,
 				}
 			: { type: "oauth-error", platform, error };
 
@@ -333,7 +306,7 @@ export async function GET(
 	const redirectUri = `${appUrl ?? "http://localhost:3080"}/api/auth/${platform}/callback`;
 
 	try {
-		const accessToken = await exchangeCodeForToken(
+		const { accessToken, refreshToken } = await exchangeCodeForToken(
 			platform as Platform,
 			code,
 			redirectUri,
@@ -341,6 +314,7 @@ export async function GET(
 		const credentials = await getStreamCredentials(
 			platform as Platform,
 			accessToken,
+			refreshToken,
 		);
 		return new NextResponse(
 			buildResponseHtml(platform, credentials, null),

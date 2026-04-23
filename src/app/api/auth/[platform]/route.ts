@@ -13,12 +13,12 @@ const OAUTH_CONFIGS: Record<Platform, OAuthConfig> = {
 	youtube: {
 		authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
 		clientId: process.env.YOUTUBE_CLIENT_ID ?? '',
-		scopes: 'https://www.googleapis.com/auth/youtube.readonly',
+		scopes: 'https://www.googleapis.com/auth/youtube',
 	},
 	twitch: {
 		authUrl: 'https://id.twitch.tv/oauth2/authorize',
 		clientId: process.env.TWITCH_CLIENT_ID ?? '',
-		scopes: 'channel:read:stream_key',
+		scopes: 'channel:read:stream_key chat:read user:read:chat',
 	},
 	facebook: {
 		authUrl: 'https://www.facebook.com/dialog/oauth',
@@ -87,7 +87,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 	})
 
 	if (platform === 'youtube') {
-		searchParams.set('access_type', 'online')
+		searchParams.set('access_type', 'offline')
+		searchParams.set('prompt', 'consent')
 	}
 
 	return NextResponse.redirect(`${config.authUrl}?${searchParams.toString()}`)
