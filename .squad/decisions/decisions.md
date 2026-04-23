@@ -436,4 +436,65 @@ Foundational architecture for multistream + multi-provider chat.
 
 ---
 
+## D4. Bug Fix: TikTok OAuth API Nested Response Handling
+
+**Date:** 2026-04-23  
+**Author:** Zoe (Backend / Nostr Dev)  
+**Status:** IMPLEMENTED  
+**Commit:** 75d1949
+
+### Context
+
+TikTok and Facebook OAuth connections were failing silently. Diagnosis revealed:
+
+1. **TikTok token exchange:** The v2 OAuth API returns a nested JSON structure:
+   ```json
+   {
+     "data": {
+       "access_token": "act.xxx",
+       "refresh_token": "rft.xxx",
+       "expires_in": 86400,
+       ...
+     },
+     "error": { "code": "ok", "message": "" }
+   }
+   ```
+   But `exchangeCodeForToken()` was reading `data.access_token` (undefined) instead of `data.data.access_token`.
+
+2. **TikTok user info:** The `/v2/user/info/` endpoint REQUIRES a `fields` query parameter. Without it, the API returns an error.
+
+3. **Facebook scopes:** Currently using only `publish_video`. For future Page-level streaming, we'll need `pages_show_list`.
+
+4. **Error logging:** No server-side error logs made OAuth debugging difficult.
+
+### Decision
+
+1. **Platform-specific token extraction:** In `exchangeCodeForToken()`, detect TikTok platform and extract from `data.data` if present, otherwise fall back to flat `data` (YouTube/Twitch/Facebook).
+
+2. **TikTok user info fields:** Append `?fields=display_name,avatar_url` to TikTok user info API call.
+
+3. **Facebook scope expansion:** Add `pages_show_list` to Facebook OAuth scopes in `route.ts`.
+
+4. **Error logging:** Add `console.error` in OAuth callback catch block to log platform + error details.
+
+### Rationale
+
+- **TikTok's nested format** is a permanent API design — not a bug. Conditional handling is cleaner than attempting to change the platform's response.
+- **Minimal change scope:** Only modifies OAuth flow, doesn't touch broadcast creation (which already handles TikTok's nested responses correctly at line 212 of `broadcast/route.ts`).
+- **Facebook scope pre-planning:** `pages_show_list` is non-invasive; doesn't require App Review for read-only page list.
+- **Logging hygiene:** Server-side errors are invisible in production without logs. Always log in API catch blocks.
+
+### Impact
+
+- **User-facing:** TikTok and Facebook OAuth connections should now succeed.
+- **Developer experience:** Server logs will show actual OAuth errors instead of "Failed to retrieve stream key".
+- **Future-proof:** Facebook `pages_show_list` scope enables Page streaming UI in future without re-auth flow.
+
+### Files Changed
+
+- `src/app/api/auth/[platform]/callback/route.ts` — token extraction, TikTok user info, error logging
+- `src/app/api/auth/[platform]/route.ts` — Facebook scopes
+
+---
+
 **END OF DECISIONS COMPENDIUM**

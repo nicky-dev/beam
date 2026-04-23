@@ -60,3 +60,10 @@ Nostr event kinds: 1311 (chat), 30311 (stream metadata, replaceable), 30078 (pre
 - **Broadcast API updated:** YouTube `createYouTubeBroadcast` now extracts `broadcast.snippet.liveChatId` and returns it as `chatId` in `BroadcastResponse`.
 - **TikTok chat skipped:** No public API for third-party chat access — confirmed in architecture decision D1.
 - **Commit c7ecbcb:** Phase 3 backend infrastructure complete. All files staged and committed to main. Ready for Kaylee's frontend integration.
+
+### OAuth Bug Fixes — TikTok & Facebook (2026-04-23)
+- **TikTok nested response:** `exchangeCodeForToken()` now detects TikTok platform and extracts from `data.data.access_token` instead of `data.access_token`. TikTok v2 OAuth returns `{ data: { access_token, refresh_token, ... }, error: { ... } }`.
+- **TikTok user info fields:** `getTikTokStreamCredentials()` now includes `?fields=display_name,avatar_url` query param — TikTok API requires `fields` parameter.
+- **Facebook scope expansion:** Added `pages_show_list` alongside `publish_video` for future Page-level streaming support.
+- **Error logging:** Added `console.error` in callback route catch block for OAuth debugging in server logs.
+- **Commit 75d1949:** TikTok and Facebook OAuth bugs fixed. `exchangeCodeForToken()` validates correctly, TikTok/Facebook connection flows should work end-to-end.
