@@ -2,25 +2,40 @@
 import * as React from "react";
 import { useSubscription } from "nostr-hooks";
 import { NDKKind } from "@nostr-dev-kit/ndk";
-import ChatMessageList from "@/component/ChatMessagesList";
 import { Box } from "@mui/material";
 import { useWidgetContext } from "@/hook/widget";
 import { useSearchParams } from "next/navigation";
+import { usePlatformChat } from "@/hook/usePlatformChat";
+import NostrChatMessageAdapter from "@/component/NostrChatMessageAdapter";
+import PlatformChatMessage from "@/component/PlatformChatMessage";
+import type { UnifiedChatMessage } from "@/lib/chat/types";
+import { nip19 } from "nostr-tools";
 
 export default function LiveChat() {
 	const searchParams = useSearchParams();
 	const now = searchParams.get("now");
-	const { liveId } = useWidgetContext();
-	const chatBoxRef = React.useRef<HTMLElement>(null); // สร้าง ref สำหรับอ้างอิง Box element
-	const timeoutRef = React.useRef<NodeJS.Timeout>(null); // สร้าง ref สำหรับอ้างอิง Box element
+	const { liveId, pubkey } = useWidgetContext();
+	const chatBoxRef = React.useRef<HTMLElement>(null);
+	const timeoutRef = React.useRef<NodeJS.Timeout>(null);
+
+	// Convert pubkey to npub for SSE connection
+	const npub = React.useMemo(() => {
+		if (!pubkey) return undefined;
+		try {
+			return nip19.npubEncode(pubkey);
+		} catch {
+			return undefined;
+		}
+	}, [pubkey]);
 
 	const subId = React.useMemo(() => "live-chat-" + liveId, [liveId]);
 	const { createSubscription, events, removeSubscription } =
 		useSubscription(subId);
 
+	const { messages: platformMessages } = usePlatformChat(npub);
+
 	React.useEffect(() => {
 		if (!liveId) return;
-		// เพิ่ม NDKKind.Zap (9735) เข้าไปใน filters เพื่อ query zap events ด้วย
 		const filters = [
 			{
 				kinds: [1311 as NDKKind],
@@ -28,14 +43,14 @@ export default function LiveChat() {
 				...(now === "1"
 					? { since: Math.floor(Date.now() / 1000) }
 					: { limit: 20 }),
-			}, // Live Chat Messages
+			},
 			{
 				kinds: [NDKKind.Zap],
 				"#a": [liveId],
 				...(now === "1"
 					? { since: Math.floor(Date.now() / 1000) }
 					: { limit: 20 }),
-			}, // Zap Events targeting this live activity
+			},
 		];
 		createSubscription({ filters });
 		return () => {
@@ -43,9 +58,16 @@ export default function LiveChat() {
 		};
 	}, [now, liveId, createSubscription, removeSubscription]);
 
-	// เพิ่ม useEffect นี้เข้ามา เพื่อเลื่อน scroll ลงล่างสุดเมื่อ events มีการเปลี่ยนแปลง (มีข้อความใหม่เข้ามา)
+	// Sort platform messages for interleaved rendering
+	const sortedPlatformMessages = React.useMemo(
+		() => [...platformMessages].sort((a, b) => a.timestamp - b.timestamp),
+		[platformMessages],
+	);
+
+	const totalMessageCount = (events?.length ?? 0) + sortedPlatformMessages.length;
+
 	React.useEffect(() => {
-		if (!events || events.length <= 0) return;
+		if (totalMessageCount <= 0) return;
 		if (timeoutRef.current) {
 			clearTimeout(timeoutRef.current);
 			timeoutRef.current = null;
@@ -59,7 +81,19 @@ export default function LiveChat() {
 				});
 			}
 		}, 200);
-	}, [events]);
+	}, [totalMessageCount]);
+
+	// Build a merged timeline of nostr events and platform messages
+	const mergedItems = React.useMemo(() => {
+		const nostrItems: { type: "nostr"; event: import("@nostr-dev-kit/ndk").NDKEvent; ts: number }[] = (events ?? []).map(
+			(e) => ({ type: "nostr" as const, event: e, ts: e.created_at ?? 0 }),
+		);
+		const platformItems: { type: "platform"; message: UnifiedChatMessage; ts: number }[] = sortedPlatformMessages.map(
+			(m) => ({ type: "platform" as const, message: m, ts: m.timestamp }),
+		);
+
+		return [...nostrItems, ...platformItems].sort((a, b) => a.ts - b.ts);
+	}, [events, sortedPlatformMessages]);
 
 	return (
 		<Box
@@ -88,7 +122,13 @@ export default function LiveChat() {
 				},
 			}}
 		>
-			{events ? <ChatMessageList messages={events} /> : null}
+			{mergedItems.map((item) =>
+				item.type === "nostr" ? (
+					<NostrChatMessageAdapter key={item.event.id} event={item.event} />
+				) : (
+					<PlatformChatMessage key={item.message.id} message={item.message} />
+				),
+			)}
 		</Box>
 	);
 }

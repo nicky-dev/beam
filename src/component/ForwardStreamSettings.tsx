@@ -34,6 +34,7 @@ import { useActiveUser, useNdk } from "nostr-hooks";
 import { useQuery } from "@tanstack/react-query";
 import { default as NDK, NDKEvent, NDKKind, NDKUser } from "@nostr-dev-kit/ndk";
 import { keyframes } from "@emotion/react";
+import { nip19 } from "nostr-tools";
 import { PLATFORM_RTMP_URLS } from "@/lib/streaming/constants";
 
 // Backend API URL - can be configured via environment variable
@@ -633,6 +634,27 @@ export default function ForwardStreamSettings() {
 				});
 
 				pushListQuery.refetch();
+
+				// Step 5: Register chat for this platform (non-blocking)
+				try {
+					const userNpub = activeUser ? nip19.npubEncode(activeUser.pubkey) : undefined;
+					if (userNpub) {
+						await fetch("/api/chat/register", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								npub: userNpub,
+								platform,
+								accessToken: updatedPlatformConfig.accessToken,
+								chatId: (broadcastData as Record<string, unknown>).chatId,
+								broadcastId: broadcastData.broadcastId,
+								channelName: (broadcastData as Record<string, unknown>).channelName,
+							}),
+						});
+					}
+				} catch (chatErr) {
+					console.warn(`Chat registration for ${platform} failed:`, chatErr);
+				}
 			} catch (error) {
 				console.error(`Failed to start forward to ${platform}:`, error);
 				setForwardError(
@@ -646,7 +668,7 @@ export default function ForwardStreamSettings() {
 				});
 			}
 		},
-		[isStreaming, streamId, config, presetData, saveConfig, pushListQuery],
+		[isStreaming, streamId, config, presetData, saveConfig, pushListQuery, activeUser],
 	);
 
 	// Start forwarding to all enabled platforms at once
@@ -718,13 +740,27 @@ export default function ForwardStreamSettings() {
 
 			// Refetch push list
 			pushListQuery.refetch();
+
+			// Deregister chat for this platform (non-blocking)
+			try {
+				const userNpub = activeUser ? nip19.npubEncode(activeUser.pubkey) : undefined;
+				if (userNpub) {
+					await fetch("/api/chat/register", {
+						method: "DELETE",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ npub: userNpub, platform }),
+					});
+				}
+			} catch (chatErr) {
+				console.warn(`Chat deregistration for ${platform} failed:`, chatErr);
+			}
 		} catch (error) {
 			console.error(`Failed to stop forward to ${platform}:`, error);
 			setForwardError(
 				error instanceof Error ? error.message : "Failed to stop forward",
 			);
 		}
-	}, [config, saveConfig, pushListQuery]);
+	}, [config, saveConfig, pushListQuery, activeUser]);
 
 	// Stop forwarding all live platforms at once
 	const handleStopAllForward = useCallback(async () => {
@@ -736,7 +772,21 @@ export default function ForwardStreamSettings() {
 
 		setForwardError(null);
 		await Promise.allSettled(livePlatforms.map((p) => handleStopForward(p)));
-	}, [config, handleStopForward]);
+
+		// Deregister all chat sessions (non-blocking)
+		try {
+			const userNpub = activeUser ? nip19.npubEncode(activeUser.pubkey) : undefined;
+			if (userNpub) {
+				await fetch("/api/chat/register", {
+					method: "DELETE",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ npub: userNpub }),
+				});
+			}
+		} catch (chatErr) {
+			console.warn("Chat deregistration (all) failed:", chatErr);
+		}
+	}, [config, handleStopForward, activeUser]);
 
 	// Check if any platform is currently forwarding
 	const hasLivePlatforms = useMemo(

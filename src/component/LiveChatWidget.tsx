@@ -2,17 +2,22 @@
 import * as React from "react";
 import { useSubscription } from "nostr-hooks";
 import { NDKKind } from "@nostr-dev-kit/ndk";
-import ChatMessageList from "@/component/ChatMessagesList";
 import { Box } from "@mui/material";
+import { usePlatformChat } from "@/hook/usePlatformChat";
+import NostrChatMessageAdapter from "@/component/NostrChatMessageAdapter";
+import PlatformChatMessage from "@/component/PlatformChatMessage";
+import type { UnifiedChatMessage } from "@/lib/chat/types";
 
 interface LiveChatWidgetProps {
 	liveId: string;
 	now?: boolean;
+	npub?: string;
 }
 
 export default function LiveChatWidget({
 	liveId,
 	now = true,
+	npub,
 }: LiveChatWidgetProps) {
 	const chatBoxRef = React.useRef<HTMLElement>(null);
 	const timeoutRef = React.useRef<NodeJS.Timeout>(null);
@@ -20,6 +25,8 @@ export default function LiveChatWidget({
 	const subId = React.useMemo(() => "live-chat-widget-" + liveId, [liveId]);
 	const { createSubscription, events, removeSubscription } =
 		useSubscription(subId);
+
+	const { messages: platformMessages } = usePlatformChat(npub);
 
 	React.useEffect(() => {
 		if (!liveId) return;
@@ -41,8 +48,17 @@ export default function LiveChatWidget({
 		};
 	}, [now, liveId, createSubscription, removeSubscription]);
 
+	// Sort platform messages for interleaved rendering
+	const sortedPlatformMessages = React.useMemo(
+		() => [...platformMessages].sort((a, b) => a.timestamp - b.timestamp),
+		[platformMessages],
+	);
+
+	// Merge Nostr events and platform messages by timestamp for scroll tracking
+	const totalMessageCount = (events?.length ?? 0) + sortedPlatformMessages.length;
+
 	React.useEffect(() => {
-		if (!events || events.length <= 0) return;
+		if (totalMessageCount <= 0) return;
 		if (timeoutRef.current) {
 			clearTimeout(timeoutRef.current);
 			timeoutRef.current = null;
@@ -56,7 +72,19 @@ export default function LiveChatWidget({
 				});
 			}
 		}, 200);
-	}, [events]);
+	}, [totalMessageCount]);
+
+	// Build a merged timeline of nostr events and platform messages
+	const mergedItems = React.useMemo(() => {
+		const nostrItems: { type: "nostr"; event: import("@nostr-dev-kit/ndk").NDKEvent; ts: number }[] = (events ?? []).map(
+			(e) => ({ type: "nostr" as const, event: e, ts: e.created_at ?? 0 }),
+		);
+		const platformItems: { type: "platform"; message: UnifiedChatMessage; ts: number }[] = sortedPlatformMessages.map(
+			(m) => ({ type: "platform" as const, message: m, ts: m.timestamp }),
+		);
+
+		return [...nostrItems, ...platformItems].sort((a, b) => a.ts - b.ts);
+	}, [events, sortedPlatformMessages]);
 
 	return (
 		<Box
@@ -86,7 +114,13 @@ export default function LiveChatWidget({
 				},
 			}}
 		>
-			{events ? <ChatMessageList messages={events} /> : null}
+			{mergedItems.map((item) =>
+				item.type === "nostr" ? (
+					<NostrChatMessageAdapter key={item.event.id} event={item.event} />
+				) : (
+					<PlatformChatMessage key={item.message.id} message={item.message} />
+				),
+			)}
 		</Box>
 	);
 }
