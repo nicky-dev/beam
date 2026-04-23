@@ -23,12 +23,12 @@
 
 | Name | Model | Tier | Reason |
 |------|-------|------|--------|
-| Wash | claude-sonnet-4.5 | Standard | Code review + architecture decisions |
-| Kaylee | claude-sonnet-4.5 | Standard | Writes React/TypeScript code |
-| Zoe | claude-sonnet-4.5 | Standard | Writes TypeScript/API/Nostr code |
-| Jayne | claude-sonnet-4.5 | Standard | Writes test code |
-| Scribe | claude-haiku-4.5 | Fast | Mechanical file ops |
-| Ralph | claude-haiku-4.5 | Fast | Monitoring, no code generation |
+| Wash | gpt-5-mini | Fast | Lead tasks — save tokens |
+| Kaylee | gpt-5-mini | Fast | Frontend code — save tokens |
+| Zoe | gpt-5-mini | Fast | Backend/Nostr code — save tokens |
+| Jayne | gpt-5-mini | Fast | Test code — save tokens |
+| Scribe | gpt-5-mini | Fast | Mechanical file ops |
+| Ralph | gpt-5-mini | Fast | Monitoring, no code generation |
 
 ## Project Context
 
