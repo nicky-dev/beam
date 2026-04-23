@@ -23,7 +23,7 @@ const OAUTH_CONFIGS: Record<Platform, OAuthConfig> = {
 	facebook: {
 		authUrl: 'https://www.facebook.com/dialog/oauth',
 		clientId: process.env.FACEBOOK_APP_ID ?? '',
-		scopes: 'user_videos',
+		scopes: 'publish_video',
 	},
 	tiktok: {
 		authUrl: 'https://www.tiktok.com/v2/auth/authorize',

@@ -1,6 +1,9 @@
+import { PLATFORM_RTMP_URLS } from "@/lib/streaming/constants";
 import { NextRequest, NextResponse } from "next/server";
 
 type Platform = "youtube" | "twitch" | "facebook" | "tiktok";
+
+const FACEBOOK_API_VERSION = process.env.FACEBOOK_API_VERSION ?? "v20.0";
 
 interface StreamCredentials {
 	streamKey: string;
@@ -26,7 +29,7 @@ const TOKEN_CONFIGS: Record<Platform, TokenConfig> = {
 		clientSecret: process.env.TWITCH_CLIENT_SECRET ?? "",
 	},
 	facebook: {
-		tokenUrl: "https://graph.facebook.com/v20.0/oauth/access_token",
+		tokenUrl: `https://graph.facebook.com/${FACEBOOK_API_VERSION}/oauth/access_token`,
 		clientId: process.env.FACEBOOK_APP_ID ?? "",
 		clientSecret: process.env.FACEBOOK_APP_SECRET ?? "",
 	},
@@ -77,7 +80,9 @@ async function getYouTubeStreamCredentials(
 	);
 
 	if (!response.ok) {
-		throw new Error("Failed to fetch YouTube stream details");
+		throw new Error(
+			"Failed to fetch YouTube stream details. Your YouTube access token may have expired — try reconnecting.",
+		);
 	}
 
 	const data = await response.json();
@@ -89,9 +94,16 @@ async function getYouTubeStreamCredentials(
 		);
 	}
 
+	const ingestionInfo = stream?.cdn?.ingestionInfo;
+	if (!ingestionInfo?.streamName || !ingestionInfo?.ingestionAddress) {
+		throw new Error(
+			"YouTube stream is missing ingestion info. Check your live stream setup in YouTube Studio.",
+		);
+	}
+
 	return {
-		streamKey: stream.cdn.ingestionInfo.streamName as string,
-		serverUrl: `${stream.cdn.ingestionInfo.ingestionAddress as string}/`,
+		streamKey: ingestionInfo.streamName as string,
+		serverUrl: `${ingestionInfo.ingestionAddress as string}/`,
 	};
 }
 
@@ -108,14 +120,18 @@ async function getTwitchStreamCredentials(
 	});
 
 	if (!userResponse.ok) {
-		throw new Error("Failed to fetch Twitch user info");
+		throw new Error(
+			"Failed to fetch Twitch user info. Your Twitch access token may have expired — try reconnecting.",
+		);
 	}
 
 	const userData = await userResponse.json();
 	const broadcasterId = userData.data?.[0]?.id as string | undefined;
 
 	if (!broadcasterId) {
-		throw new Error("Failed to retrieve Twitch broadcaster ID");
+		throw new Error(
+			"Failed to retrieve Twitch broadcaster ID. Ensure your Twitch account is set up for streaming.",
+		);
 	}
 
 	const keyResponse = await fetch(
@@ -129,19 +145,23 @@ async function getTwitchStreamCredentials(
 	);
 
 	if (!keyResponse.ok) {
-		throw new Error("Failed to fetch Twitch stream key");
+		throw new Error(
+			"Failed to fetch Twitch stream key. Ensure your Twitch account has streaming enabled.",
+		);
 	}
 
 	const keyData = await keyResponse.json();
 	const streamKey = keyData.data?.[0]?.stream_key as string | undefined;
 
 	if (!streamKey) {
-		throw new Error("No Twitch stream key found");
+		throw new Error(
+			"No Twitch stream key found. Please enable streaming in your Twitch dashboard.",
+		);
 	}
 
 	return {
 		streamKey,
-		serverUrl: "rtmp://live.twitch.tv/app/",
+		serverUrl: PLATFORM_RTMP_URLS.twitch,
 	};
 }
 
@@ -149,7 +169,7 @@ async function getFacebookStreamCredentials(
 	accessToken: string,
 ): Promise<StreamCredentials> {
 	const response = await fetch(
-		"https://graph.facebook.com/v20.0/me/live_videos",
+		`https://graph.facebook.com/${FACEBOOK_API_VERSION}/me/live_videos`,
 		{
 			method: "POST",
 			headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -162,7 +182,9 @@ async function getFacebookStreamCredentials(
 	);
 
 	if (!response.ok) {
-		throw new Error("Failed to create Facebook live video session");
+		throw new Error(
+			"Failed to create Facebook live video session. Check that your Facebook account has live streaming permissions.",
+		);
 	}
 
 	const data = await response.json();
@@ -170,7 +192,9 @@ async function getFacebookStreamCredentials(
 	const streamUrl: string = data.secure_stream_url || data.stream_url;
 
 	if (!streamUrl) {
-		throw new Error("No stream URL returned from Facebook");
+		throw new Error(
+			"No stream URL returned from Facebook. Ensure your account is approved for Facebook Live.",
+		);
 	}
 
 	// Facebook URL format: rtmps://live-api-s.facebook.com:443/rtmp/{stream_key}
@@ -197,7 +221,9 @@ async function getTikTokStreamCredentials(
 	);
 
 	if (!response.ok) {
-		throw new Error("Failed to create TikTok live room");
+		throw new Error(
+			"Failed to create TikTok live room. Ensure your TikTok account meets the live streaming requirements.",
+		);
 	}
 
 	const data = await response.json();
