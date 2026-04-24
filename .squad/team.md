@@ -16,6 +16,7 @@
 | Kaylee | Frontend Dev | `.squad/agents/kaylee/charter.md` | ⚛️ Active |
 | Zoe | Backend / Nostr Dev | `.squad/agents/zoe/charter.md` | 🔧 Active |
 | Jayne | Tester / QA | `.squad/agents/jayne/charter.md` | 🧪 Active |
+| Inara | Product Owner | `.squad/agents/inara/charter.md` | 🎯 Active |
 | Scribe | Session Logger | `.squad/agents/scribe/charter.md` | 📋 Active (silent) |
 | Ralph | Work Monitor | `.squad/agents/ralph/charter.md` | 🔄 Monitor |
 
@@ -27,6 +28,7 @@
 | Kaylee | claude-sonnet-4.5 | Standard | Writes React/TypeScript code |
 | Zoe | claude-sonnet-4.5 | Standard | Writes TypeScript/API/Nostr code |
 | Jayne | claude-sonnet-4.5 | Standard | Writes test code |
+| Inara | claude-haiku-4.5 / claude-sonnet-4.5 | Auto | Haiku for planning; Sonnet for feature evaluation & rejection |
 | Scribe | claude-haiku-4.5 | Fast | Mechanical file ops |
 | Ralph | claude-haiku-4.5 | Fast | Monitoring, no code generation |
 

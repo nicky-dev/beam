@@ -48,3 +48,15 @@ Key architectural facts:
 - Decision formally committed to `.squad/decisions/decisions.md`
 - Orchestration logs created for Wash/Zoe/Kaylee
 - Session log documenting Phase 1+2 completion
+
+### 2026-04-24 — Stream Lifecycle Architecture Rethink
+- **User decision:** BLS-001 (Go Live button) is NOT needed. Stream lifecycle follows OBS RTMP connection automatically.
+- **Key constraint:** Frontend has Nostr signing key (NIP-07/nsec), backend does not. Frontend must publish events, but backend knows RTMP state.
+- **MVP approach:** Poll existing `/v1/push/list/${streamId}` every 5 seconds to detect RTMP connection changes. Simple, already implemented, acceptable latency.
+- **New architecture:** `useStreamLifecycle()` hook detects RTMP connect → auto-publish kind 30311 with status=live, RTMP disconnect → auto-update to status=ended.
+- **Pre-flight config:** PresetSettings (kind 30078) becomes default template for new streams. User fills it BEFORE starting OBS. No separate "planned" state needed.
+- **Existing code unchanged:** ForwardStreamSettings (platform forwarding) remains independent of stream lifecycle. EditStreamingInfo still works for live edits.
+- **New components:** `StreamStatusIndicator.tsx` (visual state display), `useStreamLifecycle.ts` (polling + state machine + Nostr publishing).
+- **Open question for Zoe:** Verify `/v1/push/list` returns source RTMP connection (not just forwarding pushes). May need new endpoint: `GET /v1/rtmp/status/${streamId}`.
+- **Future optimization:** WebSocket/SSE for real-time detection (currently 5-second polling delay acceptable for MVP).
+- Full architecture decision: `.squad/decisions/inbox/wash-stream-lifecycle-rethink.md`

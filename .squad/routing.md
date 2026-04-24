@@ -11,7 +11,9 @@ How to decide who handles what.
 | Backend & Nostr protocol | Zoe | NDK, OAuth, RTMP API, Nostr events, hooks |
 | Tests & quality | Jayne | Test setup, unit tests, integration tests, edge cases |
 | Code review | Wash | Review PRs, approve/reject agent work |
-| Scope & priorities | Wash | What to build next, trade-offs, decisions |
+| Product backlog & priorities | Inara | What to build next, user stories, acceptance criteria |
+| Feature evaluation & sign-off | Inara | Does delivered work solve the user's problem? Approve/reject |
+| User story & requirements | Inara | Writing user stories, defining done criteria before dev |
 | Session logging | Scribe | Automatic — never needs routing |
 | Backlog monitoring | Ralph | Issue triage, PR status, CI monitoring |
 
@@ -37,6 +39,7 @@ How to decide who handles what.
 | `squad:kaylee` | Frontend / UI work | Kaylee |
 | `squad:zoe` | Backend / Nostr / API work | Zoe |
 | `squad:jayne` | Testing / QA work | Jayne |
+| `squad:inara` | Product / backlog / requirements work | Inara |
 | `squad` (no sub-label) | Needs triage | Wash triages first |
 | `squad` | Triage: analyze issue, assign `squad:{member}` label | Lead |
 | `squad:{name}` | Pick up issue and complete the work | Named member |
